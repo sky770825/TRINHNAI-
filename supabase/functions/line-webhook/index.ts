@@ -64,20 +64,13 @@ async function getKeywords(supabase: ReturnType<typeof createClient>): Promise<B
   return data || [];
 }
 
-// Match keyword from message
+// Match keyword from message (exact match only)
 function matchKeyword(messageText: string, keywords: BotKeyword[]): BotKeyword | null {
   const text = messageText.trim().toLowerCase();
   
-  // Try exact match first
+  // Only exact match to avoid unwanted triggers during conversation
   for (const kw of keywords) {
     if (kw.keyword.toLowerCase() === text) {
-      return kw;
-    }
-  }
-  
-  // Try partial match (if message contains keyword)
-  for (const kw of keywords) {
-    if (text.includes(kw.keyword.toLowerCase())) {
       return kw;
     }
   }
