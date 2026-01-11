@@ -1,0 +1,16 @@
+project_id = "iofbmtjgfphictlmczas"
+
+[functions.admin-leads]
+verify_jwt = false
+
+[functions.send-lead-notification]
+verify_jwt = false
+
+[functions.send-booking-confirmation]
+verify_jwt = false
+
+[functions.line-webhook]
+verify_jwt = false
+
+[functions.remarketing-cron]
+verify_jwt = false
