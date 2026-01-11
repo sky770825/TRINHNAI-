@@ -154,14 +154,21 @@ const Admin = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const { data, error: funcError } = await supabase.functions.invoke("admin-leads", {
-        body: { action: "getAdminData" },
-      });
+      // 直接從資料庫讀取資料
+      const [leadsRes, bookingsRes] = await Promise.all([
+        supabase.from('leads').select('*').order('created_at', { ascending: false }),
+        supabase.from('bookings').select('*').order('created_at', { ascending: false })
+      ]);
 
-      if (!funcError && data) {
-        setLeads(data.leads || []);
-        setBookings(data.bookings || []);
+      if (leadsRes.error) {
+        console.error("Error fetching leads:", leadsRes.error);
       }
+      if (bookingsRes.error) {
+        console.error("Error fetching bookings:", bookingsRes.error);
+      }
+
+      setLeads(leadsRes.data || []);
+      setBookings(bookingsRes.data || []);
     } catch (err) {
       console.error("Error fetching data:", err);
     } finally {
