@@ -161,8 +161,90 @@ function isValidLast5Digits(input: string): boolean {
   return /^\d{5}$/.test(input.trim());
 }
 
-// Generate services Flex Message with images
-function createServicesFlexMessage() {
+// Generate services Flex Message from database
+async function createServicesFlexMessage(supabase: ReturnType<typeof createClient>) {
+  // Fetch active services from database
+  const { data: services, error } = await supabase
+    .from('service_settings')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order');
+  
+  if (error || !services || services.length === 0) {
+    console.error("Error fetching services:", error);
+    // Return default if error
+    return createDefaultServicesFlexMessage();
+  }
+  
+  const bubbles = services.map(service => ({
+    type: "bubble",
+    hero: {
+      type: "image",
+      url: service.image_url,
+      size: "full",
+      aspectRatio: "20:13",
+      aspectMode: "cover"
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "text",
+          text: service.name,
+          weight: "bold",
+          size: "xl",
+          color: "#D4AF37"
+        },
+        {
+          type: "text",
+          text: service.description,
+          size: "sm",
+          color: "#999999",
+          margin: "md"
+        },
+        {
+          type: "text",
+          text: service.price_range,
+          size: "xxl",
+          weight: "bold",
+          color: "#000000",
+          margin: "lg"
+        }
+      ]
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          height: "sm",
+          action: {
+            type: "message",
+            label: "立即預約",
+            text: `預約${service.name.replace(/[💅👁️✨🪶\s]/g, '')}`
+          },
+          color: "#D4AF37"
+        }
+      ]
+    }
+  }));
+  
+  return {
+    type: "flex",
+    altText: "服務項目選單",
+    contents: {
+      type: "carousel",
+      contents: bubbles
+    }
+  };
+}
+
+// Default services Flex Message (fallback)
+function createDefaultServicesFlexMessage() {
   return {
     type: "flex",
     altText: "服務項目選單",
@@ -398,8 +480,66 @@ function createServicesFlexMessage() {
   };
 }
 
-// Create store selection Flex Message
-function createStoreSelectionMessage() {
+// Create store selection Flex Message from database
+async function createStoreSelectionMessage(supabase: ReturnType<typeof createClient>) {
+  // Fetch active stores from database
+  const { data: stores, error } = await supabase
+    .from('store_settings')
+    .select('*')
+    .eq('is_active', true);
+  
+  if (error || !stores || stores.length === 0) {
+    console.error("Error fetching stores:", error);
+    // Return default if error
+    return createDefaultStoreSelectionMessage();
+  }
+  
+  const buttons = stores.map(store => ({
+    type: "button",
+    style: "primary",
+    action: {
+      type: "message",
+      label: `📍 ${store.name}`,
+      text: store.name
+    },
+    color: "#D4AF37"
+  }));
+  
+  return {
+    type: "flex",
+    altText: "選擇分店",
+    contents: {
+      type: "bubble",
+      body: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          {
+            type: "text",
+            text: "🏪 請選擇分店",
+            weight: "bold",
+            size: "xl",
+            color: "#D4AF37"
+          },
+          {
+            type: "separator",
+            margin: "lg"
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            margin: "lg",
+            spacing: "md",
+            contents: buttons
+          }
+        ]
+      }
+    }
+  };
+}
+
+// Default store selection (fallback)
+function createDefaultStoreSelectionMessage() {
   return {
     type: "flex",
     altText: "選擇分店",
@@ -432,7 +572,7 @@ function createStoreSelectionMessage() {
                 action: {
                   type: "message",
                   label: "📍 中壢元化店（前站）",
-                  text: "元化店"
+                  text: "中壢元化店"
                 },
                 color: "#D4AF37"
               },
@@ -442,7 +582,7 @@ function createStoreSelectionMessage() {
                 action: {
                   type: "message",
                   label: "📍 中壢忠福店（黃昏市場對面）",
-                  text: "忠福店"
+                  text: "中壢忠福店"
                 },
                 color: "#D4AF37"
               }
@@ -695,19 +835,26 @@ serve(async (req) => {
           
           // Handle booking type keyword
           if (matchedKeyword.response_type === 'booking') {
-            await sendLineMessage(replyToken, [createServicesFlexMessage()], accessToken);
+            await sendLineMessage(replyToken, [await createServicesFlexMessage(supabase)], accessToken);
             continue;
           }
         }
 
         // Handle booking flow - service selection
         if (messageText.startsWith('預約')) {
-          const serviceMap: Record<string, string> = {
-            '預約美甲': 'nail',
-            '預約美睫': 'lash',
-            '預約紋繡': 'tattoo',
-            '預約除毛': 'waxing'
-          };
+          // Fetch services to build service map dynamically
+          const { data: services } = await supabase
+            .from('service_settings')
+            .select('service_id, name')
+            .eq('is_active', true);
+          
+          const serviceMap: Record<string, string> = {};
+          if (services) {
+            for (const svc of services) {
+              const cleanName = svc.name.replace(/[💅👁️✨🪶\s]/g, '');
+              serviceMap[`預約${cleanName}`] = svc.service_id;
+            }
+          }
           
           const service = serviceMap[messageText];
           if (service) {
@@ -719,7 +866,7 @@ serve(async (req) => {
               })
               .eq('id', user.id);
             
-            await sendLineMessage(replyToken, [createStoreSelectionMessage()], accessToken);
+            await sendLineMessage(replyToken, [await createStoreSelectionMessage(supabase)], accessToken);
             continue;
           }
         }
@@ -730,15 +877,21 @@ serve(async (req) => {
             const state = JSON.parse(conversationState);
             
             if (state.step === 'booking_select_store') {
-              const storeMap: Record<string, string> = {
-                '元化店': 'yuanhua',
-                '忠福店': 'zhongfu'
-              };
+              // Fetch store from database by name
+              const { data: stores } = await supabase
+                .from('store_settings')
+                .select('*')
+                .eq('is_active', true);
               
-              const store = storeMap[messageText];
-              if (store) {
+              let selectedStore = null;
+              if (stores) {
+                selectedStore = stores.find(s => messageText.includes(s.name) || messageText.includes(s.store_id));
+              }
+              
+              if (selectedStore) {
                 state.step = 'booking_input_date';
-                state.store = store;
+                state.store = selectedStore.store_id;
+                state.store_name = selectedStore.name;
                 
                 await supabase
                   .from('line_users')
@@ -761,18 +914,78 @@ serve(async (req) => {
                 today.setHours(0, 0, 0, 0);
                 
                 if (bookingDate >= today) {
-                  state.step = 'booking_input_time';
-                  state.booking_date = messageText;
+                  // Check if date is valid for the store (check available_days)
+                  const { data: storeData } = await supabase
+                    .from('store_settings')
+                    .select('*')
+                    .eq('store_id', state.store)
+                    .single();
                   
-                  await supabase
-                    .from('line_users')
-                    .update({ conversation_state: JSON.stringify(state) })
-                    .eq('id', user.id);
-                  
-                  await sendLineMessage(replyToken, [{
-                    type: "text",
-                    text: "⏰ 請輸入預約時間\n\n格式：HH:MM\n例如：14:00\n\n營業時間：09:00 - 22:00"
-                  }], accessToken);
+                  if (storeData) {
+                    const dayOfWeek = bookingDate.getDay().toString();
+                    if (!storeData.available_days.includes(dayOfWeek)) {
+                      await sendLineMessage(replyToken, [{
+                        type: "text",
+                        text: "❌ 該日期本店不營業\n\n請選擇其他日期"
+                      }], accessToken);
+                      continue;
+                    }
+                    
+                    state.step = 'booking_input_time';
+                    state.booking_date = messageText;
+                    
+                    // Generate available time slots
+                    const { data: blockedSlots } = await supabase
+                      .from('booking_blocks')
+                      .select('block_time')
+                      .eq('store_id', state.store)
+                      .eq('block_date', messageText);
+                    
+                    const { data: bookedSlots } = await supabase
+                      .from('line_bookings')
+                      .select('booking_time')
+                      .eq('store', state.store)
+                      .eq('booking_date', messageText)
+                      .neq('status', 'cancelled');
+                    
+                    const blockedTimes = new Set(blockedSlots?.map(b => b.block_time) || []);
+                    const bookedTimes = new Set(bookedSlots?.map(b => b.booking_time) || []);
+                    
+                    // Generate time slots based on store settings
+                    const startHour = parseInt(storeData.opening_time.split(':')[0]);
+                    const endHour = parseInt(storeData.closing_time.split(':')[0]);
+                    const slots = [];
+                    
+                    for (let hour = startHour; hour < endHour; hour++) {
+                      const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
+                      if (!blockedTimes.has(timeSlot) && !bookedTimes.has(timeSlot)) {
+                        slots.push(timeSlot);
+                      }
+                    }
+                    
+                    await supabase
+                      .from('line_users')
+                      .update({ conversation_state: JSON.stringify(state) })
+                      .eq('id', user.id);
+                    
+                    if (slots.length > 0) {
+                      const timeText = `⏰ 請選擇預約時間\n\n📅 ${messageText}\n🏪 ${state.store_name}\n\n可選時段：\n${slots.slice(0, 10).join('、')}\n\n請直接輸入時間（例如：${slots[0]}）`;
+                      await sendLineMessage(replyToken, [{
+                        type: "text",
+                        text: timeText
+                      }], accessToken);
+                    } else {
+                      await sendLineMessage(replyToken, [{
+                        type: "text",
+                        text: "❌ 該日期已無可用時段\n\n請重新選擇日期"
+                      }], accessToken);
+                      state.step = 'booking_input_date';
+                      await supabase
+                        .from('line_users')
+                        .update({ conversation_state: JSON.stringify(state) })
+                        .eq('id', user.id);
+                    }
+                  }
                   continue;
                 } else {
                   await sendLineMessage(replyToken, [{
@@ -791,8 +1004,34 @@ serve(async (req) => {
             }
             
             if (state.step === 'booking_input_time') {
-              // Validate time format
+              // Validate time format and availability
               if (/^([01]\d|2[0-3]):([0-5]\d)$/.test(messageText)) {
+                // Check if time slot is available
+                const { data: isBlocked } = await supabase
+                  .from('booking_blocks')
+                  .select('id')
+                  .eq('store_id', state.store)
+                  .eq('block_date', state.booking_date)
+                  .eq('block_time', messageText)
+                  .single();
+                
+                const { data: isBooked } = await supabase
+                  .from('line_bookings')
+                  .select('id')
+                  .eq('store', state.store)
+                  .eq('booking_date', state.booking_date)
+                  .eq('booking_time', messageText)
+                  .neq('status', 'cancelled')
+                  .single();
+                
+                if (isBlocked || isBooked) {
+                  await sendLineMessage(replyToken, [{
+                    type: "text",
+                    text: "❌ 此時段已被預約或不可用\n\n請選擇其他時段"
+                  }], accessToken);
+                  continue;
+                }
+                
                 state.step = 'booking_input_name';
                 state.booking_time = messageText;
                 
@@ -834,19 +1073,17 @@ serve(async (req) => {
             if (state.step === 'booking_input_phone') {
               state.phone = messageText.trim();
               
+              // Fetch service and store names from database
+              const { data: service } = await supabase
+                .from('service_settings')
+                .select('name')
+                .eq('service_id', state.service)
+                .single();
+              
+              const serviceName = service?.name || state.service;
+              const storeName = state.store_name || state.store;
+              
               // Create booking
-              const serviceNames: Record<string, string> = {
-                nail: '💅 美甲服務',
-                lash: '👁️ 美睫服務',
-                tattoo: '✨ 紋繡服務',
-                waxing: '🪶 熱蠟除毛'
-              };
-              
-              const storeNames: Record<string, string> = {
-                yuanhua: '中壢元化店（前站）',
-                zhongfu: '中壢忠福店（黃昏市場對面）'
-              };
-              
               const { error: bookingError } = await supabase
                 .from('line_bookings')
                 .insert({
@@ -869,7 +1106,7 @@ serve(async (req) => {
               } else {
                 await sendLineMessage(replyToken, [{
                   type: "text",
-                  text: `✅ 預約成功！\n\n👤 姓名：${state.user_name}\n📱 電話：${state.phone}\n💆 服務：${serviceNames[state.service]}\n🏪 分店：${storeNames[state.store]}\n📅 日期：${state.booking_date}\n⏰ 時間：${state.booking_time}\n\n我們會盡快與您確認預約，感謝您的預約！🎉`
+                  text: `✅ 預約已送出！\n\n👤 姓名：${state.user_name}\n📱 電話：${state.phone}\n💆 服務：${serviceName}\n🏪 分店：${storeName}\n📅 日期：${state.booking_date}\n⏰ 時間：${state.booking_time}\n\n⏳ 預約狀態：待確認\n\n我們會盡快與您確認預約，確認後會再次通知您！🎉`
                 }], accessToken);
               }
               

@@ -74,6 +74,33 @@ export type Database = {
         }
         Relationships: []
       }
+      booking_blocks: {
+        Row: {
+          id: string
+          store_id: string
+          block_date: string
+          block_time: string
+          reason: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          store_id: string
+          block_date: string
+          block_time: string
+          reason?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          store_id?: string
+          block_date?: string
+          block_time?: string
+          reason?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       bookings: {
         Row: {
           booking_date: string
@@ -173,6 +200,8 @@ export type Database = {
           booking_time: string
           notes: string | null
           status: string
+          confirmed_at: string | null
+          confirmed_by: string | null
           created_at: string
           updated_at: string
         }
@@ -187,6 +216,8 @@ export type Database = {
           booking_time: string
           notes?: string | null
           status?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -201,6 +232,8 @@ export type Database = {
           booking_time?: string
           notes?: string | null
           status?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -283,6 +316,87 @@ export type Database = {
           id?: string
           is_active?: boolean
           message_content?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      service_settings: {
+        Row: {
+          id: string
+          service_id: string
+          name: string
+          description: string
+          price_range: string
+          image_url: string
+          is_active: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          service_id: string
+          name: string
+          description: string
+          price_range: string
+          image_url: string
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          service_id?: string
+          name?: string
+          description?: string
+          price_range?: string
+          image_url?: string
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      store_settings: {
+        Row: {
+          id: string
+          store_id: string
+          name: string
+          address: string | null
+          opening_time: string
+          closing_time: string
+          time_slot_duration: number
+          available_days: string[]
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          store_id: string
+          name: string
+          address?: string | null
+          opening_time?: string
+          closing_time?: string
+          time_slot_duration?: number
+          available_days?: string[]
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          store_id?: string
+          name?: string
+          address?: string | null
+          opening_time?: string
+          closing_time?: string
+          time_slot_duration?: number
+          available_days?: string[]
+          is_active?: boolean
+          created_at?: string
           updated_at?: string
         }
         Relationships: []
