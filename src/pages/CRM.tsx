@@ -80,6 +80,7 @@ interface ServiceSetting {
   description: string;
   price_range: string;
   image_url: string;
+  aspect_ratio: string;
   is_active: boolean;
   sort_order: number;
 }
@@ -176,8 +177,11 @@ const CRM = () => {
     description: '',
     price_range: '',
     image_url: '',
+    aspect_ratio: '20:13',
     sort_order: 0,
   });
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
   
   // Stores state
   const [stores, setStores] = useState<StoreSetting[]>([]);
@@ -454,8 +458,10 @@ const CRM = () => {
         description: service.description,
         price_range: service.price_range,
         image_url: service.image_url,
+        aspect_ratio: service.aspect_ratio || '20:13',
         sort_order: service.sort_order,
       });
+      setImagePreview(service.image_url);
     } else {
       setEditingService(null);
       setServiceForm({
@@ -464,10 +470,35 @@ const CRM = () => {
         description: '',
         price_range: '',
         image_url: '',
+        aspect_ratio: '20:13',
         sort_order: services.length,
       });
+      setImagePreview('');
     }
+    setSelectedImageFile(null);
     setIsServiceDialogOpen(true);
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast.error("圖片大小不能超過 5MB");
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast.error("請選擇圖片檔案");
+        return;
+      }
+      setSelectedImageFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const saveService = async () => {
@@ -476,7 +507,52 @@ const CRM = () => {
       return;
     }
 
+    if (!selectedImageFile && !serviceForm.image_url) {
+      toast.error("請選擇圖片或填入圖片網址");
+      return;
+    }
+
     try {
+      let finalImageUrl = serviceForm.image_url;
+
+      // If user selected a new image file, upload it
+      if (selectedImageFile) {
+        const fileExt = selectedImageFile.name.split('.').pop();
+        const fileName = `${serviceForm.service_id}-${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        // Upload new image
+        const { error: uploadError } = await supabase.storage
+          .from('service-images')
+          .upload(filePath, selectedImageFile, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          toast.error("圖片上傳失敗");
+          return;
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('service-images')
+          .getPublicUrl(filePath);
+
+        finalImageUrl = publicUrl;
+
+        // Delete old image if updating
+        if (editingService && editingService.image_url.includes('service-images')) {
+          const oldPath = editingService.image_url.split('/service-images/').pop();
+          if (oldPath) {
+            await supabase.storage
+              .from('service-images')
+              .remove([oldPath]);
+          }
+        }
+      }
+
       if (editingService) {
         const { error } = await supabase
           .from('service_settings')
@@ -485,7 +561,8 @@ const CRM = () => {
             name: serviceForm.name,
             description: serviceForm.description,
             price_range: serviceForm.price_range,
-            image_url: serviceForm.image_url,
+            image_url: finalImageUrl,
+            aspect_ratio: serviceForm.aspect_ratio,
             sort_order: serviceForm.sort_order,
             updated_at: new Date().toISOString(),
           })
@@ -501,7 +578,8 @@ const CRM = () => {
             name: serviceForm.name,
             description: serviceForm.description,
             price_range: serviceForm.price_range,
-            image_url: serviceForm.image_url,
+            image_url: finalImageUrl,
+            aspect_ratio: serviceForm.aspect_ratio,
             sort_order: serviceForm.sort_order,
           });
         
@@ -510,6 +588,8 @@ const CRM = () => {
       }
       
       setIsServiceDialogOpen(false);
+      setSelectedImageFile(null);
+      setImagePreview('');
       fetchServices();
     } catch (err: any) {
       console.error("Error saving service:", err);
@@ -537,15 +617,30 @@ const CRM = () => {
   };
 
   const deleteService = async (id: string) => {
-    if (!confirm("確定要刪除此服務嗎？")) return;
+    if (!confirm("確定要刪除此服務嗎？這將同時刪除相關圖片。")) return;
     
     try {
+      // Find service to get image URL
+      const service = services.find(s => s.id === id);
+      
+      // Delete from database
       const { error } = await supabase
         .from('service_settings')
         .delete()
         .eq('id', id);
       
       if (error) throw error;
+
+      // Delete image from storage if it's in our bucket
+      if (service && service.image_url.includes('service-images')) {
+        const imagePath = service.image_url.split('/service-images/').pop();
+        if (imagePath) {
+          await supabase.storage
+            .from('service-images')
+            .remove([imagePath]);
+        }
+      }
+      
       toast.success("服務已刪除");
       fetchServices();
     } catch (err) {
@@ -2215,24 +2310,74 @@ const CRM = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">圖片網址 *</label>
+              <label className="text-sm font-medium">Flex 圖片尺寸</label>
+              <Select 
+                value={serviceForm.aspect_ratio} 
+                onValueChange={(value) => setServiceForm({ ...serviceForm, aspect_ratio: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="20:13">20:13 (寬版 - 推薦)</SelectItem>
+                  <SelectItem value="1:1">1:1 (正方形)</SelectItem>
+                  <SelectItem value="1.51:1">1.51:1 (寬)</SelectItem>
+                  <SelectItem value="16:9">16:9 (超寬)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                選擇 LINE Flex Message 的圖片比例
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">服務圖片 *</label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => document.getElementById('service-image-upload')?.click()}
+                  className="flex-1"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {selectedImageFile ? selectedImageFile.name : '上傳圖片'}
+                </Button>
+                <input
+                  id="service-image-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageSelect}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                或填入圖片網址（推薦使用 Unsplash 或 Pexels）
+              </p>
               <Input
                 placeholder="https://images.unsplash.com/..."
                 value={serviceForm.image_url}
-                onChange={(e) => setServiceForm({ ...serviceForm, image_url: e.target.value })}
+                onChange={(e) => {
+                  setServiceForm({ ...serviceForm, image_url: e.target.value });
+                  if (e.target.value) {
+                    setImagePreview(e.target.value);
+                    setSelectedImageFile(null);
+                  }
+                }}
               />
-              <p className="text-xs text-muted-foreground">
-                推薦使用 Unsplash 或 Pexels 的圖片網址
-              </p>
-              {serviceForm.image_url && (
-                <img 
-                  src={serviceForm.image_url} 
-                  alt="預覽"
-                  className="w-full h-32 object-cover rounded mt-2"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
+              {imagePreview && (
+                <div className="relative">
+                  <img 
+                    src={imagePreview} 
+                    alt="預覽"
+                    className="w-full h-48 object-cover rounded mt-2"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                  <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
+                    {serviceForm.aspect_ratio}
+                  </div>
+                </div>
               )}
             </div>
           </div>

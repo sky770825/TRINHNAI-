@@ -328,6 +328,7 @@ export type Database = {
           description: string
           price_range: string
           image_url: string
+          aspect_ratio: string
           is_active: boolean
           sort_order: number
           created_at: string
@@ -340,6 +341,7 @@ export type Database = {
           description: string
           price_range: string
           image_url: string
+          aspect_ratio?: string
           is_active?: boolean
           sort_order?: number
           created_at?: string
@@ -352,6 +354,7 @@ export type Database = {
           description?: string
           price_range?: string
           image_url?: string
+          aspect_ratio?: string
           is_active?: boolean
           sort_order?: number
           created_at?: string

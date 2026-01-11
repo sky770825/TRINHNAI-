@@ -182,7 +182,7 @@ async function createServicesFlexMessage(supabase: ReturnType<typeof createClien
       type: "image",
       url: service.image_url,
       size: "full",
-      aspectRatio: "20:13",
+      aspectRatio: service.aspect_ratio || "20:13",
       aspectMode: "cover"
     },
     body: {
