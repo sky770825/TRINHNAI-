@@ -12,7 +12,7 @@ import {
   CreditCard, CheckCircle, Send, Megaphone, Filter, Repeat,
   Download, ClipboardList, ExternalLink, Settings, Plus, Trash2,
   Key, Power, PowerOff, ArrowUp, ArrowDown, Store, Image, Upload,
-  Ban, CalendarX, CalendarDays, List, ChevronDown, ChevronUp
+  Ban, CalendarX, CalendarDays, List, ChevronDown, ChevronUp, GripVertical
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -48,6 +48,23 @@ import { DayPicker } from "react-day-picker";
 import { format, isSameDay, parseISO, startOfDay } from "date-fns";
 import { zhTW } from "date-fns/locale";
 import "react-day-picker/dist/style.css";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface LineUser {
   id: string;
@@ -698,6 +715,131 @@ const CRM = () => {
     } catch (err) {
       toast.error("刪除失敗");
     }
+  };
+
+  // Drag and drop handlers
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = services.findIndex((s) => s.id === active.id);
+      const newIndex = services.findIndex((s) => s.id === over.id);
+
+      const newServices = arrayMove(services, oldIndex, newIndex);
+      setServices(newServices);
+
+      // Update sort_order for all affected services
+      try {
+        const updates = newServices.map((service, index) => ({
+          id: service.id,
+          sort_order: index,
+        }));
+
+        // Batch update all services
+        for (const update of updates) {
+          await supabase
+            .from('service_settings')
+            .update({ sort_order: update.sort_order })
+            .eq('id', update.id);
+        }
+
+        toast.success("排序已更新");
+      } catch (err) {
+        console.error("Error updating sort order:", err);
+        toast.error("更新排序失敗");
+        // Revert on error
+        fetchServices();
+      }
+    }
+  };
+
+  // Sortable Row Component
+  const SortableServiceRow = ({ service }: { service: ServiceSetting }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: service.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+      <TableRow
+        ref={setNodeRef}
+        style={style}
+        className={isDragging ? "bg-accent" : ""}
+      >
+        <TableCell className="w-8 cursor-grab active:cursor-grabbing">
+          <div {...attributes} {...listeners} className="flex items-center">
+            <GripVertical className="w-4 h-4 text-muted-foreground" />
+          </div>
+        </TableCell>
+        <TableCell>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => toggleServiceActive(service.id, service.is_active)}
+            className={service.is_active ? "text-green-600" : "text-gray-400"}
+          >
+            {service.is_active ? (
+              <Power className="w-4 h-4" />
+            ) : (
+              <PowerOff className="w-4 h-4" />
+            )}
+          </Button>
+        </TableCell>
+        <TableCell>
+          <img 
+            src={service.image_url} 
+            alt={service.name}
+            className="w-16 h-16 object-cover rounded"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150';
+            }}
+          />
+        </TableCell>
+        <TableCell className="font-mono text-sm">{service.service_id}</TableCell>
+        <TableCell className="font-medium">{service.name}</TableCell>
+        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+          {service.description}
+        </TableCell>
+        <TableCell className="text-sm">{service.price_range}</TableCell>
+        <TableCell className="font-mono">{service.sort_order}</TableCell>
+        <TableCell>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openServiceDialog(service)}
+            >
+              <Edit2 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => deleteService(service.id)}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
   };
 
   // Stores functions
@@ -1631,84 +1773,45 @@ const CRM = () => {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>狀態</TableHead>
-                        <TableHead>圖片</TableHead>
-                        <TableHead>服務 ID</TableHead>
-                        <TableHead>名稱</TableHead>
-                        <TableHead>描述</TableHead>
-                        <TableHead>價格</TableHead>
-                        <TableHead>排序</TableHead>
-                        <TableHead>操作</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {services.length === 0 ? (
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <Table>
+                      <TableHeader>
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
-                            尚未設定任何服務項目
-                          </TableCell>
+                          <TableHead className="w-8"></TableHead>
+                          <TableHead>狀態</TableHead>
+                          <TableHead>圖片</TableHead>
+                          <TableHead>服務 ID</TableHead>
+                          <TableHead>名稱</TableHead>
+                          <TableHead>描述</TableHead>
+                          <TableHead>價格</TableHead>
+                          <TableHead>排序</TableHead>
+                          <TableHead>操作</TableHead>
                         </TableRow>
-                      ) : (
-                        services.map((service) => (
-                          <TableRow key={service.id}>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleServiceActive(service.id, service.is_active)}
-                                className={service.is_active ? "text-green-600" : "text-gray-400"}
-                              >
-                                {service.is_active ? (
-                                  <Power className="w-4 h-4" />
-                                ) : (
-                                  <PowerOff className="w-4 h-4" />
-                                )}
-                              </Button>
-                            </TableCell>
-                            <TableCell>
-                              <img 
-                                src={service.image_url} 
-                                alt={service.name}
-                                className="w-16 h-16 object-cover rounded"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150';
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell className="font-mono text-sm">{service.service_id}</TableCell>
-                            <TableCell className="font-medium">{service.name}</TableCell>
-                            <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
-                              {service.description}
-                            </TableCell>
-                            <TableCell className="text-sm">{service.price_range}</TableCell>
-                            <TableCell className="font-mono">{service.sort_order}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => openServiceDialog(service)}
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deleteService(service.id)}
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
+                      </TableHeader>
+                      <TableBody>
+                        {services.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
+                              尚未設定任何服務項目
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
+                        ) : (
+                          <SortableContext
+                            items={services.map((s) => s.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {services.map((service) => (
+                              <SortableServiceRow key={service.id} service={service} />
+                            ))}
+                          </SortableContext>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </DndContext>
                 </div>
               )}
             </motion.div>
