@@ -41,7 +41,7 @@ const VALID_ACTIONS = [
   'updateStatus', 'getLineUsers', 'updateLineUser', 'confirmPayment', 
   'sendPaymentConfirmation', 'broadcastMessage',
   'getRemarketingMessages', 'createRemarketingMessage', 'updateRemarketingMessage', 'deleteRemarketingMessage',
-  'getAdminData', 'deleteBooking', 'deleteLead'
+  'getAdminData', 'deleteBooking', 'deleteLead', 'sendBookingConfirmation'
 ] as const;
 type ValidAction = typeof VALID_ACTIONS[number];
 
@@ -80,6 +80,7 @@ interface AdminRequest {
   messageContent?: string;
   isActive?: boolean;
   leadId?: string;
+  lineBookingId?: string;
 }
 
 function validateRequest(body: unknown): { valid: true; data: AdminRequest } | { valid: false; error: string } {
@@ -152,6 +153,14 @@ function validateRequest(body: unknown): { valid: true; data: AdminRequest } | {
         return { valid: false, error: '無效的用戶 ID 格式' };
       }
       validatedRequest.lineUserId = obj.lineUserId;
+    }
+
+    // If action is sendBookingConfirmation, lineBookingId is required
+    if (obj.action === 'sendBookingConfirmation') {
+      if (typeof obj.lineBookingId !== 'string' || !isValidUUID(obj.lineBookingId)) {
+        return { valid: false, error: '無效的預約 ID 格式' };
+      }
+      validatedRequest.lineBookingId = obj.lineBookingId;
     }
 
     // If action is broadcastMessage, targetGroup and message are required
@@ -606,6 +615,130 @@ serve(async (req) => {
       console.log("Payment confirmation sent successfully");
       return new Response(
         JSON.stringify({ success: true }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Handle sendBookingConfirmation action - send LINE booking confirmation message
+    if (action === 'sendBookingConfirmation' && request.lineBookingId) {
+      console.log(`Sending booking confirmation for booking ${request.lineBookingId}`);
+      
+      // Get booking details
+      const { data: booking, error: bookingError } = await supabase
+        .from('line_bookings')
+        .select('*')
+        .eq('id', request.lineBookingId)
+        .single();
+
+      if (bookingError || !booking) {
+        console.error("Error fetching booking:", bookingError);
+        return new Response(
+          JSON.stringify({ error: "找不到預約資料" }),
+          { 
+            status: 404, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      // Get service and store names
+      const { data: service } = await supabase
+        .from('service_settings')
+        .select('name')
+        .eq('service_id', booking.service)
+        .single();
+
+      const { data: store } = await supabase
+        .from('store_settings')
+        .select('name')
+        .eq('store_id', booking.store)
+        .single();
+
+      const serviceName = service?.name || booking.service;
+      const storeName = store?.name || booking.store;
+
+      // Get LINE user info if needed
+      let displayName = booking.user_name || '會員';
+      if (booking.line_user_id) {
+        const { data: lineUser } = await supabase
+          .from('line_users')
+          .select('display_name')
+          .eq('line_user_id', booking.line_user_id)
+          .single();
+        if (lineUser?.display_name) {
+          displayName = lineUser.display_name;
+        }
+      }
+
+      // Update booking status to confirmed
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase
+        .from('line_bookings')
+        .update({
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString(),
+          confirmed_by: user?.email || 'admin',
+        })
+        .eq('id', request.lineBookingId);
+
+      // Send LINE message
+      const accessToken = Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN');
+      if (!accessToken) {
+        return new Response(
+          JSON.stringify({ error: "LINE 設定錯誤" }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      const lineUserId = booking.line_user_id;
+
+      if (!lineUserId) {
+        return new Response(
+          JSON.stringify({ error: "找不到用戶 LINE ID" }),
+          { 
+            status: 404, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      const confirmationMessage = `✅ 預約確認成功！\n\n親愛的 ${displayName} 您好，\n\n您的預約已確認：\n\n📅 日期：${booking.booking_date}\n⏰ 時間：${booking.booking_time}\n💆 服務：${serviceName}\n🏪 分店：${storeName}\n\n我們期待為您服務！\n如有任何問題，請隨時聯繫我們。\n\n感謝您的預約！✨`;
+
+      const lineResponse = await fetch('https://api.line.me/v2/bot/message/push', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          to: lineUserId,
+          messages: [{
+            type: 'text',
+            text: confirmationMessage,
+          }],
+        }),
+      });
+
+      if (!lineResponse.ok) {
+        const errorText = await lineResponse.text();
+        console.error("LINE API error:", errorText);
+        return new Response(
+          JSON.stringify({ error: "發送 LINE 訊息失敗" }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      console.log("Booking confirmation sent successfully");
+      return new Response(
+        JSON.stringify({ success: true, bookingId: request.lineBookingId }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }

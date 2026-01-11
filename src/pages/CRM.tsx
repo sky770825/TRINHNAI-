@@ -781,20 +781,23 @@ const CRM = () => {
 
   const confirmBooking = async (bookingId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase
-        .from('line_bookings')
-        .update({
-          status: 'confirmed',
-          confirmed_at: new Date().toISOString(),
-          confirmed_by: user?.email || 'admin',
-        })
-        .eq('id', bookingId);
-      
-      if (error) throw error;
-      toast.success("預約已確認");
+      // First update booking status and send LINE confirmation
+      const { data, error: funcError } = await supabase.functions.invoke("admin-leads", {
+        body: {
+          action: "sendBookingConfirmation",
+          lineBookingId: bookingId,
+        },
+      });
+
+      if (funcError || data?.error) {
+        toast.error(data?.error || "確認失敗");
+        return;
+      }
+
+      toast.success("預約已確認，已發送 LINE 通知");
       fetchBookings();
     } catch (err) {
+      console.error("Error confirming booking:", err);
       toast.error("確認失敗");
     }
   };
