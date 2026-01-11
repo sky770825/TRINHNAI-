@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Header } from "@/components/Header";
 import { HeroSection } from "@/components/sections/HeroSection";
 import { BrandSection } from "@/components/sections/BrandSection";
@@ -15,8 +15,8 @@ import { StructuredData } from "@/components/StructuredData";
 const Index = () => {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
 
-  const openBooking = () => setIsBookingOpen(true);
-  const closeBooking = () => setIsBookingOpen(false);
+  const openBooking = useCallback(() => setIsBookingOpen(true), []);
+  const closeBooking = useCallback(() => setIsBookingOpen(false), []);
 
   return (
     <div className="min-h-screen bg-background">
