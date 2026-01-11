@@ -2334,15 +2334,14 @@ const CRM = () => {
                 支援 JPG、PNG、WebP 格式，檔案大小限制 5MB
               </p>
               {imagePreview && (
-                <div className="mt-2 flex justify-center">
-                  <div className="relative max-w-sm w-full">
+                <div className="mt-2 flex justify-center bg-muted/30 p-4 rounded">
+                  <div className="relative" style={{ width: '280px' }}>
                     <img 
                       src={imagePreview} 
                       alt="預覽"
-                      className="w-full object-cover rounded"
+                      className="w-full object-cover rounded shadow-md"
                       style={{
                         aspectRatio: serviceForm.aspect_ratio.replace(':', '/'),
-                        maxHeight: '200px'
                       }}
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
