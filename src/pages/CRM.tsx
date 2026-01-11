@@ -852,6 +852,17 @@ const CRM = () => {
     return Array.from(dates).map(date => parseISO(date));
   };
 
+  // Helper functions to get service and store names
+  const getServiceName = (serviceId: string) => {
+    const service = services.find(s => s.service_id === serviceId);
+    return service?.name || serviceId;
+  };
+
+  const getStoreName = (storeId: string) => {
+    const store = stores.find(s => s.store_id === storeId);
+    return store?.name || storeId;
+  };
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -1922,11 +1933,11 @@ const CRM = () => {
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <span className="text-muted-foreground">服務：</span>
-                                        <span>{booking.service}</span>
+                                        <span>{getServiceName(booking.service)}</span>
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <Store className="w-4 h-4 text-muted-foreground" />
-                                        <span>{booking.store}</span>
+                                        <span>{getStoreName(booking.store)}</span>
                                       </div>
                                       {booking.notes && (
                                         <div className="text-xs text-muted-foreground mt-2">
@@ -2006,8 +2017,8 @@ const CRM = () => {
                               <TableCell>{booking.booking_time}</TableCell>
                               <TableCell>{booking.user_name || '-'}</TableCell>
                               <TableCell className="font-mono text-sm">{booking.phone || '-'}</TableCell>
-                              <TableCell>{booking.service}</TableCell>
-                              <TableCell>{booking.store}</TableCell>
+                              <TableCell>{getServiceName(booking.service)}</TableCell>
+                              <TableCell>{getStoreName(booking.store)}</TableCell>
                               <TableCell className="font-mono text-xs">
                                 {booking.line_user_id ? (
                                   <span className="text-muted-foreground" title={booking.line_user_id}>
