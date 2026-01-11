@@ -1970,7 +1970,7 @@ const CRM = () => {
                         <SelectItem value="cancelled">已取消</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button variant="outline" size="sm" onClick={fetchBookings}>
+                    <Button variant="outline" size="sm" onClick={fetchBookings} aria-label="重新載入預約">
                       <RefreshCw className="w-4 h-4" />
                     </Button>
                   </div>

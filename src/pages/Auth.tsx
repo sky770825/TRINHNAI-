@@ -84,17 +84,18 @@ const Auth = () => {
     if (!validateForm()) return;
 
     setIsSubmitting(true);
-    const { error } = await signUp(email, password);
-    setIsSubmitting(false);
-
-    if (error) {
-      if (error.message.includes("User already registered")) {
-        toast.error("此電子郵件已被註冊");
+    try {
+      const { error } = await signUp(email, password);
+      
+      if (error) {
+        toast.error(getErrorMessage(error));
       } else {
-        toast.error("註冊失敗：" + error.message);
+        toast.success("註冊成功！您可以立即登入");
       }
-    } else {
-      toast.success("註冊成功！您可以立即登入");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
