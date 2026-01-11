@@ -11,7 +11,8 @@ import {
   RefreshCw, User, Calendar, Tag, Edit2, Save, X, Clock,
   CreditCard, CheckCircle, Send, Megaphone, Filter, Repeat,
   Download, ClipboardList, ExternalLink, Settings, Plus, Trash2,
-  Key, Power, PowerOff, ArrowUp, ArrowDown
+  Key, Power, PowerOff, ArrowUp, ArrowDown, Store, Image, Upload,
+  Ban, CalendarX
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -72,6 +73,45 @@ interface BotKeyword {
   updated_at: string;
 }
 
+interface ServiceSetting {
+  id: string;
+  service_id: string;
+  name: string;
+  description: string;
+  price_range: string;
+  image_url: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+interface StoreSetting {
+  id: string;
+  store_id: string;
+  name: string;
+  address: string | null;
+  opening_time: string;
+  closing_time: string;
+  time_slot_duration: number;
+  available_days: string[];
+  is_active: boolean;
+}
+
+interface LineBooking {
+  id: string;
+  line_user_id: string;
+  user_name: string | null;
+  phone: string | null;
+  service: string;
+  store: string;
+  booking_date: string;
+  booking_time: string;
+  notes: string | null;
+  status: string;
+  confirmed_at: string | null;
+  confirmed_by: string | null;
+  created_at: string;
+}
+
 const followStatusLabels: Record<string, { label: string; className: string }> = {
   following: { label: "追蹤中", className: "bg-green-100 text-green-800" },
   unfollowed: { label: "已取消追蹤", className: "bg-gray-100 text-gray-800" },
@@ -124,6 +164,40 @@ const CRM = () => {
     description: '',
     priority: 5,
   });
+  
+  // Services state
+  const [services, setServices] = useState<ServiceSetting[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
+  const [isServiceDialogOpen, setIsServiceDialogOpen] = useState(false);
+  const [editingService, setEditingService] = useState<ServiceSetting | null>(null);
+  const [serviceForm, setServiceForm] = useState({
+    service_id: '',
+    name: '',
+    description: '',
+    price_range: '',
+    image_url: '',
+    sort_order: 0,
+  });
+  
+  // Stores state
+  const [stores, setStores] = useState<StoreSetting[]>([]);
+  const [isLoadingStores, setIsLoadingStores] = useState(false);
+  const [isStoreDialogOpen, setIsStoreDialogOpen] = useState(false);
+  const [editingStore, setEditingStore] = useState<StoreSetting | null>(null);
+  const [storeForm, setStoreForm] = useState({
+    store_id: '',
+    name: '',
+    address: '',
+    opening_time: '09:00',
+    closing_time: '22:00',
+    time_slot_duration: 60,
+    available_days: ['1','2','3','4','5','6','0'] as string[],
+  });
+  
+  // Bookings state
+  const [bookings, setBookings] = useState<LineBooking[]>([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(false);
+  const [bookingFilter, setBookingFilter] = useState<string>("all");
 
   const filteredUsers = lineUsers.filter((user) => {
     const query = searchQuery.toLowerCase();
@@ -152,6 +226,9 @@ const CRM = () => {
     fetchData();
     fetchBotSettings();
     fetchKeywords();
+    fetchServices();
+    fetchStores();
+    fetchBookings();
   }, []);
 
   const fetchBotSettings = async () => {
@@ -347,6 +424,299 @@ const CRM = () => {
       fetchKeywords();
     } catch (err) {
       toast.error("調整優先級失敗");
+    }
+  };
+
+  // Services functions
+  const fetchServices = async () => {
+    setIsLoadingServices(true);
+    try {
+      const { data, error } = await supabase
+        .from('service_settings')
+        .select('*')
+        .order('sort_order');
+      
+      if (error) throw error;
+      setServices(data || []);
+    } catch (err) {
+      console.error("Error fetching services:", err);
+    } finally {
+      setIsLoadingServices(false);
+    }
+  };
+
+  const openServiceDialog = (service?: ServiceSetting) => {
+    if (service) {
+      setEditingService(service);
+      setServiceForm({
+        service_id: service.service_id,
+        name: service.name,
+        description: service.description,
+        price_range: service.price_range,
+        image_url: service.image_url,
+        sort_order: service.sort_order,
+      });
+    } else {
+      setEditingService(null);
+      setServiceForm({
+        service_id: '',
+        name: '',
+        description: '',
+        price_range: '',
+        image_url: '',
+        sort_order: services.length,
+      });
+    }
+    setIsServiceDialogOpen(true);
+  };
+
+  const saveService = async () => {
+    if (!serviceForm.service_id || !serviceForm.name) {
+      toast.error("請填寫服務 ID 和名稱");
+      return;
+    }
+
+    try {
+      if (editingService) {
+        const { error } = await supabase
+          .from('service_settings')
+          .update({
+            service_id: serviceForm.service_id,
+            name: serviceForm.name,
+            description: serviceForm.description,
+            price_range: serviceForm.price_range,
+            image_url: serviceForm.image_url,
+            sort_order: serviceForm.sort_order,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingService.id);
+        
+        if (error) throw error;
+        toast.success("服務已更新");
+      } else {
+        const { error } = await supabase
+          .from('service_settings')
+          .insert({
+            service_id: serviceForm.service_id,
+            name: serviceForm.name,
+            description: serviceForm.description,
+            price_range: serviceForm.price_range,
+            image_url: serviceForm.image_url,
+            sort_order: serviceForm.sort_order,
+          });
+        
+        if (error) throw error;
+        toast.success("服務已新增");
+      }
+      
+      setIsServiceDialogOpen(false);
+      fetchServices();
+    } catch (err: any) {
+      console.error("Error saving service:", err);
+      if (err.code === '23505') {
+        toast.error("此服務 ID 已存在");
+      } else {
+        toast.error("儲存失敗");
+      }
+    }
+  };
+
+  const toggleServiceActive = async (id: string, isActive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('service_settings')
+        .update({ is_active: !isActive })
+        .eq('id', id);
+      
+      if (error) throw error;
+      toast.success(isActive ? "服務已停用" : "服務已啟用");
+      fetchServices();
+    } catch (err) {
+      toast.error("更新失敗");
+    }
+  };
+
+  const deleteService = async (id: string) => {
+    if (!confirm("確定要刪除此服務嗎？")) return;
+    
+    try {
+      const { error } = await supabase
+        .from('service_settings')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      toast.success("服務已刪除");
+      fetchServices();
+    } catch (err) {
+      toast.error("刪除失敗");
+    }
+  };
+
+  // Stores functions
+  const fetchStores = async () => {
+    setIsLoadingStores(true);
+    try {
+      const { data, error } = await supabase
+        .from('store_settings')
+        .select('*');
+      
+      if (error) throw error;
+      setStores(data || []);
+    } catch (err) {
+      console.error("Error fetching stores:", err);
+    } finally {
+      setIsLoadingStores(false);
+    }
+  };
+
+  const openStoreDialog = (store?: StoreSetting) => {
+    if (store) {
+      setEditingStore(store);
+      setStoreForm({
+        store_id: store.store_id,
+        name: store.name,
+        address: store.address || '',
+        opening_time: store.opening_time,
+        closing_time: store.closing_time,
+        time_slot_duration: store.time_slot_duration,
+        available_days: store.available_days,
+      });
+    } else {
+      setEditingStore(null);
+      setStoreForm({
+        store_id: '',
+        name: '',
+        address: '',
+        opening_time: '09:00',
+        closing_time: '22:00',
+        time_slot_duration: 60,
+        available_days: ['1','2','3','4','5','6','0'],
+      });
+    }
+    setIsStoreDialogOpen(true);
+  };
+
+  const saveStore = async () => {
+    if (!storeForm.store_id || !storeForm.name) {
+      toast.error("請填寫分店 ID 和名稱");
+      return;
+    }
+
+    try {
+      if (editingStore) {
+        const { error } = await supabase
+          .from('store_settings')
+          .update({
+            store_id: storeForm.store_id,
+            name: storeForm.name,
+            address: storeForm.address || null,
+            opening_time: storeForm.opening_time,
+            closing_time: storeForm.closing_time,
+            time_slot_duration: storeForm.time_slot_duration,
+            available_days: storeForm.available_days,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingStore.id);
+        
+        if (error) throw error;
+        toast.success("分店已更新");
+      } else {
+        const { error } = await supabase
+          .from('store_settings')
+          .insert({
+            store_id: storeForm.store_id,
+            name: storeForm.name,
+            address: storeForm.address || null,
+            opening_time: storeForm.opening_time,
+            closing_time: storeForm.closing_time,
+            time_slot_duration: storeForm.time_slot_duration,
+            available_days: storeForm.available_days,
+          });
+        
+        if (error) throw error;
+        toast.success("分店已新增");
+      }
+      
+      setIsStoreDialogOpen(false);
+      fetchStores();
+    } catch (err: any) {
+      console.error("Error saving store:", err);
+      if (err.code === '23505') {
+        toast.error("此分店 ID 已存在");
+      } else {
+        toast.error("儲存失敗");
+      }
+    }
+  };
+
+  const toggleStoreActive = async (id: string, isActive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('store_settings')
+        .update({ is_active: !isActive })
+        .eq('id', id);
+      
+      if (error) throw error;
+      toast.success(isActive ? "分店已停用" : "分店已啟用");
+      fetchStores();
+    } catch (err) {
+      toast.error("更新失敗");
+    }
+  };
+
+  // Bookings functions
+  const fetchBookings = async () => {
+    setIsLoadingBookings(true);
+    try {
+      const { data, error } = await supabase
+        .from('line_bookings')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setBookings(data || []);
+    } catch (err) {
+      console.error("Error fetching bookings:", err);
+    } finally {
+      setIsLoadingBookings(false);
+    }
+  };
+
+  const confirmBooking = async (bookingId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from('line_bookings')
+        .update({
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString(),
+          confirmed_by: user?.email || 'admin',
+        })
+        .eq('id', bookingId);
+      
+      if (error) throw error;
+      toast.success("預約已確認");
+      fetchBookings();
+    } catch (err) {
+      toast.error("確認失敗");
+    }
+  };
+
+  const cancelBooking = async (bookingId: string) => {
+    if (!confirm("確定要取消此預約嗎？")) return;
+    
+    try {
+      const { error } = await supabase
+        .from('line_bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', bookingId);
+      
+      if (error) throw error;
+      toast.success("預約已取消");
+      fetchBookings();
+    } catch (err) {
+      toast.error("取消失敗");
     }
   };
 
@@ -680,6 +1050,18 @@ const CRM = () => {
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
               機器人設定
+            </TabsTrigger>
+            <TabsTrigger value="services" className="flex items-center gap-2">
+              <Image className="w-4 h-4" />
+              服務項目
+            </TabsTrigger>
+            <TabsTrigger value="stores" className="flex items-center gap-2">
+              <Store className="w-4 h-4" />
+              分店設定
+            </TabsTrigger>
+            <TabsTrigger value="bookings" className="flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              預約管理
             </TabsTrigger>
           </TabsList>
 
