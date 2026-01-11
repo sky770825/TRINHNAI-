@@ -496,6 +496,7 @@ const CRM = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
+        setServiceForm({ ...serviceForm, image_url: '' }); // Clear URL when file selected
       };
       reader.readAsDataURL(file);
     }
