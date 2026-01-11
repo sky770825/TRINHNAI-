@@ -119,7 +119,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Footer
     "footer.contact": "聯絡我們",
     "footer.hours": "營業時間",
-    "footer.hours.value": "09:00–24:00（無休）",
+    "footer.hours.value": "09:00-22:00",
     "footer.locations": "門市地址",
     "footer.location1": "中壢元化店（前站）",
     "footer.location2": "中壢忠福店（黃昏市場對面）",
@@ -363,7 +363,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Footer
     "footer.contact": "Contact Us",
     "footer.hours": "Business Hours",
-    "footer.hours.value": "09:00–24:00 (Open Daily)",
+    "footer.hours.value": "09:00-22:00",
     "footer.locations": "Locations",
     "footer.location1": "Zhongli Yuanhua Store (Front Station)",
     "footer.location2": "Zhongli Zhongfu Store (Opposite Evening Market)",
@@ -607,7 +607,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Footer
     "footer.contact": "Liên Hệ",
     "footer.hours": "Giờ Làm Việc",
-    "footer.hours.value": "09:00–24:00 (Mở cửa hàng ngày)",
+    "footer.hours.value": "09:00-22:00",
     "footer.locations": "Địa Chỉ",
     "footer.location1": "Cửa hàng Zhongli Yuanhua (Ga trước)",
     "footer.location2": "Cửa hàng Zhongli Zhongfu (Đối diện chợ chiều)",
