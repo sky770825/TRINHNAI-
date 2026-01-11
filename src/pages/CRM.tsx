@@ -228,27 +228,33 @@ const CRM = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
 
-  const filteredUsers = lineUsers.filter((user) => {
-    const query = searchQuery.toLowerCase();
-    const matchesSearch = 
-      user.display_name?.toLowerCase().includes(query) ||
-      user.line_user_id.toLowerCase().includes(query) ||
-      user.notes?.toLowerCase().includes(query) ||
-      user.tags?.some((tag) => tag.toLowerCase().includes(query));
-    
-    const matchesPaymentFilter = 
-      paymentFilter === "all" || user.payment_status === paymentFilter;
-    
-    return matchesSearch && matchesPaymentFilter;
-  });
+  // 使用 useMemo 優化過濾用戶列表
+  const filteredUsers = useMemo(() => {
+    return lineUsers.filter((user) => {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = 
+        user.display_name?.toLowerCase().includes(query) ||
+        user.line_user_id.toLowerCase().includes(query) ||
+        user.notes?.toLowerCase().includes(query) ||
+        user.tags?.some((tag) => tag.toLowerCase().includes(query));
+      
+      const matchesPaymentFilter = 
+        paymentFilter === "all" || user.payment_status === paymentFilter;
+      
+      return matchesSearch && matchesPaymentFilter;
+    });
+  }, [lineUsers, searchQuery, paymentFilter]);
 
-  // Count users by payment status
-  const userCounts = {
-    all: lineUsers.filter(u => u.follow_status === 'following').length,
-    unpaid: lineUsers.filter(u => u.payment_status === 'unpaid' && u.follow_status === 'following').length,
-    pending: lineUsers.filter(u => u.payment_status === 'pending' && u.follow_status === 'following').length,
-    confirmed: lineUsers.filter(u => u.payment_status === 'confirmed' && u.follow_status === 'following').length,
-  };
+  // 使用 useMemo 優化用戶統計
+  const userCounts = useMemo(() => {
+    const following = lineUsers.filter(u => u.follow_status === 'following');
+    return {
+      all: following.length,
+      unpaid: following.filter(u => u.payment_status === 'unpaid').length,
+      pending: following.filter(u => u.payment_status === 'pending').length,
+      confirmed: following.filter(u => u.payment_status === 'confirmed').length,
+    };
+  }, [lineUsers]);
 
   // Load data on mount
   useEffect(() => {
