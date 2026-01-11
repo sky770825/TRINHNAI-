@@ -635,13 +635,21 @@ serve(async (req) => {
       if (bookingError || !booking) {
         console.error("Error fetching booking:", bookingError);
         return new Response(
-          JSON.stringify({ error: "找不到預約資料" }),
+          JSON.stringify({ error: "找不到預約資料", details: bookingError?.message }),
           { 
             status: 404, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
       }
+
+      console.log("Booking data:", JSON.stringify({
+        id: booking.id,
+        line_user_id: booking.line_user_id,
+        user_name: booking.user_name,
+        service: booking.service,
+        store: booking.store
+      }));
 
       // Get service and store names
       const { data: service } = await supabase
@@ -697,15 +705,25 @@ serve(async (req) => {
 
       const lineUserId = booking.line_user_id;
 
-      if (!lineUserId) {
+      if (!lineUserId || lineUserId.trim() === '') {
+        console.error("Booking missing line_user_id:", {
+          bookingId: booking.id,
+          line_user_id: booking.line_user_id,
+          user_name: booking.user_name
+        });
         return new Response(
-          JSON.stringify({ error: "找不到用戶 LINE ID" }),
+          JSON.stringify({ 
+            error: "找不到用戶 LINE ID",
+            details: "預約記錄中沒有 LINE 用戶 ID，請確認預約是從 LINE 建立的"
+          }),
           { 
             status: 404, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
       }
+
+      console.log("Sending LINE message to user:", lineUserId);
 
       const confirmationMessage = `✅ 預約確認成功！\n\n親愛的 ${displayName} 您好，\n\n您的預約已確認：\n\n📅 日期：${booking.booking_date}\n⏰ 時間：${booking.booking_time}\n💆 服務：${serviceName}\n🏪 分店：${storeName}\n\n我們期待為您服務！\n如有任何問題，請隨時聯繫我們。\n\n感謝您的預約！✨`;
 

@@ -1779,6 +1779,7 @@ const CRM = () => {
                         <TableHead>電話</TableHead>
                         <TableHead>服務</TableHead>
                         <TableHead>分店</TableHead>
+                        <TableHead>LINE ID</TableHead>
                         <TableHead>狀態</TableHead>
                         <TableHead>建立時間</TableHead>
                         <TableHead>操作</TableHead>
@@ -1789,7 +1790,7 @@ const CRM = () => {
                         .filter(b => bookingFilter === 'all' || b.status === bookingFilter)
                         .length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
+                          <TableCell colSpan={10} className="text-center text-muted-foreground py-12">
                             目前沒有預約記錄
                           </TableCell>
                         </TableRow>
@@ -1804,6 +1805,15 @@ const CRM = () => {
                               <TableCell className="font-mono text-sm">{booking.phone || '-'}</TableCell>
                               <TableCell>{booking.service}</TableCell>
                               <TableCell>{booking.store}</TableCell>
+                              <TableCell className="font-mono text-xs">
+                                {booking.line_user_id ? (
+                                  <span className="text-muted-foreground" title={booking.line_user_id}>
+                                    {booking.line_user_id.slice(0, 8)}...
+                                  </span>
+                                ) : (
+                                  <span className="text-red-500">未設定</span>
+                                )}
+                              </TableCell>
                               <TableCell>
                                 <Badge 
                                   variant={

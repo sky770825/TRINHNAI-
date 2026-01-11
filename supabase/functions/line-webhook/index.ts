@@ -1201,6 +1201,18 @@ serve(async (req) => {
               const serviceName = service?.name || state.service;
               const storeName = state.store_name || state.store;
               
+              // Create booking - ensure line_user_id is correct
+              if (!user.line_user_id) {
+                console.error("User missing line_user_id:", user);
+                await sendLineMessage(replyToken, [{
+                  type: "text",
+                  text: "❌ 系統錯誤，請稍後再試或聯繫我們"
+                }], accessToken);
+                continue;
+              }
+
+              console.log("Creating booking with line_user_id:", user.line_user_id);
+              
               // Create booking
               const { error: bookingError } = await supabase
                 .from('line_bookings')
