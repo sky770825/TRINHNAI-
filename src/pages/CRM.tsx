@@ -175,6 +175,7 @@ const CRM = () => {
   const [isLoadingServices, setIsLoadingServices] = useState(false);
   const [isServiceDialogOpen, setIsServiceDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<ServiceSetting | null>(null);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>('new');
   const [serviceForm, setServiceForm] = useState({
     service_id: '',
     name: '',
@@ -464,6 +465,7 @@ const CRM = () => {
   const openServiceDialog = (service?: ServiceSetting) => {
     if (service) {
       setEditingService(service);
+      setSelectedServiceId(service.service_id);
       setServiceForm({
         service_id: service.service_id,
         name: service.name,
@@ -476,6 +478,7 @@ const CRM = () => {
       setImagePreview(service.image_url);
     } else {
       setEditingService(null);
+      setSelectedServiceId('new');
       setServiceForm({
         service_id: '',
         name: '',
@@ -489,6 +492,42 @@ const CRM = () => {
     }
     setSelectedImageFile(null);
     setIsServiceDialogOpen(true);
+  };
+
+  const handleServiceSelect = (serviceId: string) => {
+    setSelectedServiceId(serviceId);
+    if (serviceId === 'new') {
+      // 新增服務，清空表單
+      setEditingService(null);
+      setServiceForm({
+        service_id: '',
+        name: '',
+        description: '',
+        price_range: '',
+        image_url: '',
+        aspect_ratio: '20:13',
+        sort_order: services.length,
+      });
+      setImagePreview('');
+      setSelectedImageFile(null);
+    } else {
+      // 選擇現有服務，自動填充表單
+      const service = services.find(s => s.service_id === serviceId);
+      if (service) {
+        setEditingService(service);
+        setServiceForm({
+          service_id: service.service_id,
+          name: service.name,
+          description: service.description,
+          price_range: service.price_range,
+          image_url: service.image_url,
+          aspect_ratio: service.aspect_ratio || '20:13',
+          sort_order: service.sort_order,
+        });
+        setImagePreview(service.image_url);
+        setSelectedImageFile(null);
+      }
+    }
   };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2517,29 +2556,69 @@ const CRM = () => {
           </DialogHeader>
 
           <div className="space-y-4 py-4 overflow-y-auto max-h-[60vh]">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">服務 ID *</label>
-                <Input
-                  placeholder="例如：nail, lash"
-                  value={serviceForm.service_id}
-                  onChange={(e) => setServiceForm({ ...serviceForm, service_id: e.target.value })}
-                  disabled={!!editingService}
-                />
-                <p className="text-xs text-muted-foreground">
-                  英文小寫，用於系統識別
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">服務名稱 *</label>
-                <Input
-                  placeholder="例如：💅 美甲服務"
-                  value={serviceForm.name}
-                  onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })}
-                />
-              </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">選擇服務 *</label>
+              <Select value={selectedServiceId} onValueChange={handleServiceSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="選擇現有服務或新增服務" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">➕ 新增服務</SelectItem>
+                  {services.map((service) => (
+                    <SelectItem key={service.service_id} value={service.service_id}>
+                      {service.name} ({service.service_id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                選擇現有服務進行編輯，或選擇「新增服務」來建立新服務
+              </p>
             </div>
+
+            {selectedServiceId === 'new' ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">服務 ID *</label>
+                  <Input
+                    placeholder="例如：nail, lash, 美甲"
+                    value={serviceForm.service_id}
+                    onChange={(e) => setServiceForm({ ...serviceForm, service_id: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    用於系統識別，可使用中文或英文
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">服務名稱 *</label>
+                  <Input
+                    placeholder="例如：💅 美甲服務"
+                    value={serviceForm.name}
+                    onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">服務 ID</label>
+                  <Input
+                    value={serviceForm.service_id}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">服務名稱 *</label>
+                  <Input
+                    value={serviceForm.name}
+                    onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">服務描述 *</label>
