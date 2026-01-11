@@ -1,4 +1,4 @@
-import { Instagram, Facebook, MapPin, Clock, Phone, MessageCircle, Mail } from "lucide-react";
+import { ExternalLink, Instagram, Facebook, MapPin, Clock, Phone, MessageCircle, Mail, Navigation } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export const Footer = () => {
