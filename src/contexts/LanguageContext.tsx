@@ -121,7 +121,7 @@ const translations: Record<Language, Record<string, string>> = {
     "footer.hours": "營業時間",
     "footer.hours.value": "09:00-22:00",
     "footer.locations": "門市地址",
-    "footer.location1": "中壢元化店（前站）",
+    "footer.location1": "中壢元化店（前站）\n桃園市中壢區元化路40號",
     "footer.location2": "中壢忠福店（黃昏市場對面）",
     "footer.follow": "追蹤我們",
     "footer.copyright": "© 2026 Trinhnai All Rights Reserved.",

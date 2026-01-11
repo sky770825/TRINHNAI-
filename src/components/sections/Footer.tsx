@@ -71,7 +71,15 @@ export const Footer = () => {
               <div className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 text-cream/50 flex-shrink-0 mt-0.5" />
                 <div className="text-cream/70">
-                  <p className="font-medium text-cream mb-1">{t("footer.location1")}</p>
+                  <a
+                    href="https://maps.app.goo.gl/iLW9MVSyEXH7u61G8"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-cream hover:text-cream/80 transition-colors block"
+                  >
+                    中壢元化店（前站）
+                  </a>
+                  <p className="text-sm mt-1 whitespace-pre-line">桃園市中壢區元化路40號</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
