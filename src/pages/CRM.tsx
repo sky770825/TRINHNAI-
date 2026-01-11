@@ -12,7 +12,7 @@ import {
   CreditCard, CheckCircle, Send, Megaphone, Filter, Repeat,
   Download, ClipboardList, ExternalLink, Settings, Plus, Trash2,
   Key, Power, PowerOff, ArrowUp, ArrowDown, Store, Image, Upload,
-  Ban, CalendarX, CalendarDays, List
+  Ban, CalendarX, CalendarDays, List, ChevronDown, ChevronUp
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -208,6 +208,7 @@ const CRM = () => {
   const [bookingFilter, setBookingFilter] = useState<string>("all");
   const [bookingView, setBookingView] = useState<"table" | "calendar">("table");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
 
   const filteredUsers = lineUsers.filter((user) => {
     const query = searchQuery.toLowerCase();
@@ -240,6 +241,11 @@ const CRM = () => {
     fetchStores();
     fetchBookings();
   }, []);
+
+  // Reset expanded booking when date changes
+  useEffect(() => {
+    setExpandedBookingId(null);
+  }, [selectedDate]);
 
   const fetchBotSettings = async () => {
     setIsLoadingSettings(true);
@@ -1833,7 +1839,7 @@ const CRM = () => {
                   <span className="ml-2 text-muted-foreground">載入預約中...</span>
                 </div>
               ) : bookingView === "calendar" ? (
-                <div className="grid gap-6 md:grid-cols-2">
+                <div className="grid gap-6 md:grid-cols-3">
                   {/* Calendar */}
                   <div className="bg-background rounded-lg border p-4">
                     <DayPicker
@@ -1878,7 +1884,7 @@ const CRM = () => {
                   </div>
 
                   {/* Selected Date Bookings */}
-                  <div className="space-y-4">
+                  <div className="space-y-4 md:col-span-2">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold">
                         {selectedDate ? format(selectedDate, "yyyy年MM月dd日 (EEEE)", { locale: zhTW }) : "選擇日期"}
@@ -1889,7 +1895,7 @@ const CRM = () => {
                     </div>
                     
                     {selectedDate ? (
-                      <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                      <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-2">
                         {getBookingsForDate(selectedDate)
                           .filter(b => bookingFilter === 'all' || b.status === bookingFilter)
                           .length === 0 ? (
@@ -1899,80 +1905,108 @@ const CRM = () => {
                         ) : (
                           getBookingsForDate(selectedDate)
                             .filter(b => bookingFilter === 'all' || b.status === bookingFilter)
-                            .map((booking) => (
-                              <div
-                                key={booking.id}
-                                className="border rounded-lg p-4 space-y-2 hover:bg-accent/50 transition-colors"
-                              >
-                                <div className="flex items-start justify-between">
-                                  <div className="space-y-1 flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <Clock className="w-4 h-4 text-muted-foreground" />
-                                      <span className="font-semibold">{booking.booking_time}</span>
+                            .map((booking) => {
+                              const isExpanded = expandedBookingId === booking.id;
+                              return (
+                                <div
+                                  key={booking.id}
+                                  className="border rounded-lg overflow-hidden hover:bg-accent/50 transition-colors"
+                                >
+                                  {/* Compact Header - Always Visible */}
+                                  <div 
+                                    className="flex items-center justify-between p-3 cursor-pointer"
+                                    onClick={() => setExpandedBookingId(isExpanded ? null : booking.id)}
+                                  >
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                      <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                      <span className="font-semibold text-sm w-16 flex-shrink-0">{booking.booking_time}</span>
+                                      <span className="font-medium truncate flex-1">{booking.user_name || '未提供姓名'}</span>
                                       <Badge 
                                         variant={
                                           booking.status === 'confirmed' ? 'default' : 
                                           booking.status === 'pending' ? 'secondary' : 
                                           'outline'
                                         }
-                                        className="ml-2"
+                                        className="flex-shrink-0"
                                       >
                                         {booking.status === 'pending' && '待確認'}
                                         {booking.status === 'confirmed' && '已確認'}
                                         {booking.status === 'cancelled' && '已取消'}
                                       </Badge>
                                     </div>
-                                    <div className="text-sm space-y-1">
-                                      <div className="flex items-center gap-2">
-                                        <User className="w-4 h-4 text-muted-foreground" />
-                                        <span>{booking.user_name || '-'}</span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-muted-foreground">電話：</span>
-                                        <span className="font-mono text-sm">{booking.phone || '-'}</span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-muted-foreground">服務：</span>
-                                        <span>{getServiceName(booking.service)}</span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <Store className="w-4 h-4 text-muted-foreground" />
-                                        <span>{getStoreName(booking.store)}</span>
-                                      </div>
-                                      {booking.notes && (
-                                        <div className="text-xs text-muted-foreground mt-2">
-                                          {booking.notes}
-                                        </div>
+                                    <div className="flex items-center gap-1 ml-2">
+                                      {isExpanded ? (
+                                        <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                                      ) : (
+                                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
                                       )}
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-1">
-                                    {booking.status === 'pending' && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => confirmBooking(booking.id)}
-                                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                        title="確認預約"
-                                      >
-                                        <CheckCircle className="w-4 h-4" />
-                                      </Button>
-                                    )}
-                                    {booking.status !== 'cancelled' && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => cancelBooking(booking.id)}
-                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                        title="取消預約"
-                                      >
-                                        <X className="w-4 h-4" />
-                                      </Button>
-                                    )}
-                                  </div>
+
+                                  {/* Expanded Details - Conditional */}
+                                  {isExpanded && (
+                                    <div className="border-t bg-background/50 p-4 space-y-3">
+                                      <div className="grid gap-3 sm:grid-cols-2">
+                                        <div className="space-y-2">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-sm text-muted-foreground w-16">電話：</span>
+                                            <span className="font-mono text-sm">{booking.phone || '-'}</span>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-sm text-muted-foreground w-16">服務：</span>
+                                            <span className="text-sm">{getServiceName(booking.service)}</span>
+                                          </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                          <div className="flex items-center gap-2">
+                                            <Store className="w-4 h-4 text-muted-foreground" />
+                                            <span className="text-sm text-muted-foreground">分店：</span>
+                                            <span className="text-sm">{getStoreName(booking.store)}</span>
+                                          </div>
+                                          {booking.notes && (
+                                            <div className="text-xs text-muted-foreground mt-2">
+                                              <span className="font-medium">備註：</span> {booking.notes}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Action Buttons */}
+                                      <div className="flex items-center justify-end gap-2 pt-2 border-t">
+                                        {booking.status === 'pending' && (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              confirmBooking(booking.id);
+                                            }}
+                                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                          >
+                                            <CheckCircle className="w-4 h-4 mr-1" />
+                                            確認
+                                          </Button>
+                                        )}
+                                        {booking.status !== 'cancelled' && (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              cancelBooking(booking.id);
+                                            }}
+                                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                          >
+                                            <X className="w-4 h-4 mr-1" />
+                                            取消
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
-                            ))
+                              );
+                            })
                         )}
                       </div>
                     ) : (
