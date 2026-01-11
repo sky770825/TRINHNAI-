@@ -507,8 +507,8 @@ const CRM = () => {
       return;
     }
 
-    if (!selectedImageFile && !serviceForm.image_url) {
-      toast.error("請選擇圖片或填入圖片網址");
+    if (!selectedImageFile && !editingService) {
+      toast.error("請上傳圖片");
       return;
     }
 
@@ -2310,27 +2310,6 @@ const CRM = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Flex 圖片尺寸</label>
-              <Select 
-                value={serviceForm.aspect_ratio} 
-                onValueChange={(value) => setServiceForm({ ...serviceForm, aspect_ratio: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="20:13">20:13 (寬版 - 推薦)</SelectItem>
-                  <SelectItem value="1:1">1:1 (正方形)</SelectItem>
-                  <SelectItem value="1.51:1">1.51:1 (寬)</SelectItem>
-                  <SelectItem value="16:9">16:9 (超寬)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                選擇 LINE Flex Message 的圖片比例
-              </p>
-            </div>
-
-            <div className="space-y-2">
               <label className="text-sm font-medium">服務圖片 *</label>
               <div className="flex gap-2">
                 <Button
@@ -2351,34 +2330,44 @@ const CRM = () => {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                或填入圖片網址（推薦使用 Unsplash 或 Pexels）
+                支援 JPG、PNG、WebP 格式，檔案大小限制 5MB
               </p>
-              <Input
-                placeholder="https://images.unsplash.com/..."
-                value={serviceForm.image_url}
-                onChange={(e) => {
-                  setServiceForm({ ...serviceForm, image_url: e.target.value });
-                  if (e.target.value) {
-                    setImagePreview(e.target.value);
-                    setSelectedImageFile(null);
-                  }
-                }}
-              />
               {imagePreview && (
-                <div className="relative">
+                <div className="relative mt-2">
                   <img 
                     src={imagePreview} 
                     alt="預覽"
-                    className="w-full h-48 object-cover rounded mt-2"
+                    className="w-full h-32 object-cover rounded"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
-                  <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
+                  <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs">
                     {serviceForm.aspect_ratio}
                   </div>
                 </div>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Flex 圖片尺寸</label>
+              <Select 
+                value={serviceForm.aspect_ratio} 
+                onValueChange={(value) => setServiceForm({ ...serviceForm, aspect_ratio: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="20:13">20:13 (寬版 - 推薦)</SelectItem>
+                  <SelectItem value="1:1">1:1 (正方形)</SelectItem>
+                  <SelectItem value="1.51:1">1.51:1 (寬)</SelectItem>
+                  <SelectItem value="16:9">16:9 (超寬)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                選擇 LINE Flex Message 的圖片比例
+              </p>
             </div>
           </div>
 
