@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      announcements: {
+        Row: {
+          id: string
+          title: string
+          content: string
+          is_active: boolean
+          priority: number
+          start_date: string | null
+          end_date: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          content: string
+          is_active?: boolean
+          priority?: number
+          start_date?: string | null
+          end_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          content?: string
+          is_active?: boolean
+          priority?: number
+          start_date?: string | null
+          end_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bot_keywords: {
         Row: {
           id: string

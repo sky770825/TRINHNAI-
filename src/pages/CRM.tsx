@@ -12,7 +12,7 @@ import {
   CreditCard, CheckCircle, Send, Megaphone, Filter, Repeat,
   Download, ClipboardList, ExternalLink, Settings, Plus, Trash2,
   Key, Power, PowerOff, ArrowUp, ArrowDown, Store, Image, Upload,
-  Ban, CalendarX, CalendarDays, List, ChevronDown, ChevronUp, GripVertical
+  Ban, CalendarX, CalendarDays, List, ChevronDown, ChevronUp, GripVertical, Bell
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -116,6 +116,18 @@ interface StoreSetting {
   time_slot_duration: number;
   available_days: string[];
   is_active: boolean;
+}
+
+interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  is_active: boolean;
+  priority: number;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface LineBooking {
@@ -228,6 +240,20 @@ const CRM = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
 
+  // Announcements state
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(false);
+  const [isAnnouncementDialogOpen, setIsAnnouncementDialogOpen] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
+  const [announcementForm, setAnnouncementForm] = useState({
+    title: '',
+    content: '',
+    is_active: true,
+    priority: 0,
+    start_date: '',
+    end_date: '',
+  });
+
   // 使用 useMemo 優化過濾用戶列表
   const filteredUsers = useMemo(() => {
     return lineUsers.filter((user) => {
@@ -264,6 +290,7 @@ const CRM = () => {
     fetchServices();
     fetchStores();
     fetchBookings();
+    fetchAnnouncements();
   }, []);
 
   // Reset expanded booking when date changes
@@ -1057,6 +1084,124 @@ const CRM = () => {
     return store?.name || storeId;
   };
 
+  // Announcements functions
+  const fetchAnnouncements = async () => {
+    setIsLoadingAnnouncements(true);
+    try {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('*')
+        .order('priority', { ascending: false })
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setAnnouncements(data || []);
+    } catch (err) {
+      console.error("Error fetching announcements:", err);
+      toast.error("載入公告失敗");
+    } finally {
+      setIsLoadingAnnouncements(false);
+    }
+  };
+
+  const openAnnouncementDialog = (announcement?: Announcement) => {
+    if (announcement) {
+      setEditingAnnouncement(announcement);
+      setAnnouncementForm({
+        title: announcement.title,
+        content: announcement.content,
+        is_active: announcement.is_active,
+        priority: announcement.priority,
+        start_date: announcement.start_date ? announcement.start_date.split('T')[0] : '',
+        end_date: announcement.end_date ? announcement.end_date.split('T')[0] : '',
+      });
+    } else {
+      setEditingAnnouncement(null);
+      setAnnouncementForm({
+        title: '',
+        content: '',
+        is_active: true,
+        priority: 0,
+        start_date: '',
+        end_date: '',
+      });
+    }
+    setIsAnnouncementDialogOpen(true);
+  };
+
+  const saveAnnouncement = async () => {
+    if (!announcementForm.title || !announcementForm.content) {
+      toast.error("請填寫標題和內容");
+      return;
+    }
+
+    try {
+      const dataToSave: any = {
+        title: announcementForm.title,
+        content: announcementForm.content,
+        is_active: announcementForm.is_active,
+        priority: announcementForm.priority,
+        start_date: announcementForm.start_date ? `${announcementForm.start_date}T00:00:00Z` : null,
+        end_date: announcementForm.end_date ? `${announcementForm.end_date}T23:59:59Z` : null,
+      };
+
+      if (editingAnnouncement) {
+        const { error } = await supabase
+          .from('announcements')
+          .update(dataToSave)
+          .eq('id', editingAnnouncement.id);
+        
+        if (error) throw error;
+        toast.success("公告已更新");
+      } else {
+        const { error } = await supabase
+          .from('announcements')
+          .insert(dataToSave);
+        
+        if (error) throw error;
+        toast.success("公告已新增");
+      }
+      
+      setIsAnnouncementDialogOpen(false);
+      fetchAnnouncements();
+    } catch (err: any) {
+      console.error("Error saving announcement:", err);
+      toast.error("儲存失敗");
+    }
+  };
+
+  const deleteAnnouncement = async (id: string) => {
+    if (!confirm("確定要刪除此公告嗎？")) return;
+    
+    try {
+      const { error } = await supabase
+        .from('announcements')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      toast.success("公告已刪除");
+      fetchAnnouncements();
+    } catch (err) {
+      toast.error("刪除失敗");
+    }
+  };
+
+  const toggleAnnouncementActive = async (id: string, isActive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('announcements')
+        .update({ is_active: !isActive })
+        .eq('id', id);
+      
+      if (error) throw error;
+      toast.success(isActive ? "公告已停用" : "公告已啟用");
+      fetchAnnouncements();
+    } catch (err) {
+      toast.error("更新失敗");
+    }
+  };
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -1399,6 +1544,10 @@ const CRM = () => {
             <TabsTrigger value="bookings" className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
               預約管理
+            </TabsTrigger>
+            <TabsTrigger value="announcements" className="flex items-center gap-2">
+              <Bell className="w-4 h-4" />
+              公告管理
             </TabsTrigger>
           </TabsList>
 
@@ -2264,6 +2413,121 @@ const CRM = () => {
             </motion.div>
           </TabsContent>
 
+          {/* Announcements Tab */}
+          <TabsContent value="announcements">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden"
+            >
+              <div className="p-6 border-b border-border/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                      <Bell className="w-5 h-5 text-primary" />
+                      公告管理
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      管理網站首頁公告訊息
+                    </p>
+                  </div>
+                  <Button onClick={() => openAnnouncementDialog()} aria-label="新增公告">
+                    <Plus className="w-4 h-4 mr-2" />
+                    新增公告
+                  </Button>
+                </div>
+              </div>
+
+              {isLoadingAnnouncements ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground">載入公告中...</span>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>狀態</TableHead>
+                        <TableHead>標題</TableHead>
+                        <TableHead>內容</TableHead>
+                        <TableHead>優先級</TableHead>
+                        <TableHead>開始日期</TableHead>
+                        <TableHead>結束日期</TableHead>
+                        <TableHead>建立時間</TableHead>
+                        <TableHead>操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {announcements.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                            尚未建立任何公告
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        announcements.map((announcement) => (
+                          <TableRow key={announcement.id}>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleAnnouncementActive(announcement.id, announcement.is_active)}
+                                className={announcement.is_active ? "text-green-600" : "text-gray-400"}
+                                aria-label={announcement.is_active ? "停用公告" : "啟用公告"}
+                              >
+                                {announcement.is_active ? (
+                                  <Power className="w-4 h-4" />
+                                ) : (
+                                  <PowerOff className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </TableCell>
+                            <TableCell className="font-medium">{announcement.title}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground max-w-[300px] truncate">
+                              {announcement.content}
+                            </TableCell>
+                            <TableCell className="font-mono">{announcement.priority}</TableCell>
+                            <TableCell className="text-sm">
+                              {announcement.start_date ? format(parseISO(announcement.start_date), 'yyyy/MM/dd') : '-'}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {announcement.end_date ? format(parseISO(announcement.end_date), 'yyyy/MM/dd') : '-'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {format(parseISO(announcement.created_at), 'yyyy/MM/dd HH:mm')}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openAnnouncementDialog(announcement)}
+                                  aria-label="編輯公告"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteAnnouncement(announcement.id)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  aria-label="刪除公告"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </motion.div>
+          </TabsContent>
+
           {/* Settings Tab */}
           <TabsContent value="settings">
             <motion.div
@@ -2959,6 +3223,98 @@ const CRM = () => {
               取消
             </Button>
             <Button onClick={saveStore}>
+              <Save className="w-4 h-4 mr-2" />
+              儲存
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Announcement Dialog */}
+      <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{editingAnnouncement ? '編輯公告' : '新增公告'}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4 overflow-y-auto max-h-[60vh]">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">標題 *</label>
+              <Input
+                placeholder="公告標題"
+                value={announcementForm.title}
+                onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">內容 *</label>
+              <Textarea
+                placeholder="公告內容（支援換行）"
+                value={announcementForm.content}
+                onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })}
+                rows={8}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">優先級</label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={announcementForm.priority}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, priority: parseInt(e.target.value) || 0 })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  數字越大優先級越高
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">狀態</label>
+                <div className="flex items-center gap-2 pt-2">
+                  <label className="text-sm">啟用</label>
+                  <input
+                    type="checkbox"
+                    checked={announcementForm.is_active}
+                    onChange={(e) => setAnnouncementForm({ ...announcementForm, is_active: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">開始日期（選填）</label>
+                <Input
+                  type="date"
+                  value={announcementForm.start_date}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, start_date: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">結束日期（選填）</label>
+                <Input
+                  type="date"
+                  value={announcementForm.end_date}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, end_date: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsAnnouncementDialogOpen(false)}
+            >
+              <X className="w-4 h-4 mr-2" />
+              取消
+            </Button>
+            <Button onClick={saveAnnouncement}>
               <Save className="w-4 h-4 mr-2" />
               儲存
             </Button>

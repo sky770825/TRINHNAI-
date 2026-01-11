@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { HeroSection } from "@/components/sections/HeroSection";
 import { BrandSection } from "@/components/sections/BrandSection";
@@ -11,12 +11,26 @@ import { Footer } from "@/components/sections/Footer";
 import { BookingModal } from "@/components/BookingModal";
 import { StickyCTA } from "@/components/StickyCTA";
 import { StructuredData } from "@/components/StructuredData";
+import { AnnouncementModal } from "@/components/AnnouncementModal";
 
 const Index = () => {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(false);
 
   const openBooking = useCallback(() => setIsBookingOpen(true), []);
   const closeBooking = useCallback(() => setIsBookingOpen(false), []);
+  const openAnnouncement = useCallback(() => setIsAnnouncementOpen(true), []);
+  const closeAnnouncement = useCallback(() => setIsAnnouncementOpen(false), []);
+
+  // Show announcement modal on page load
+  useEffect(() => {
+    // Small delay to ensure page is loaded
+    const timer = setTimeout(() => {
+      openAnnouncement();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [openAnnouncement]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -51,6 +65,7 @@ const Index = () => {
       
       <StickyCTA onBookingClick={openBooking} />
       <BookingModal isOpen={isBookingOpen} onClose={closeBooking} />
+      <AnnouncementModal isOpen={isAnnouncementOpen} onClose={closeAnnouncement} />
     </div>
   );
 };
