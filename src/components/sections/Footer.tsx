@@ -75,11 +75,23 @@ export const Footer = () => {
                     href="https://maps.app.goo.gl/iLW9MVSyEXH7u61G8"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-medium text-cream hover:text-cream/80 transition-colors block"
+                    className="font-medium text-cream hover:text-cream/80 transition-colors inline-flex items-center gap-2 group"
                   >
                     中壢元化店（前站）
+                    <ExternalLink className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" />
                   </a>
-                  <p className="text-sm mt-1 whitespace-pre-line">桃園市中壢區元化路40號</p>
+                  <div className="mt-1 space-y-1">
+                    <p className="text-sm whitespace-pre-line">桃園市中壢區元化路40號</p>
+                    <a
+                      href="https://maps.app.goo.gl/iLW9MVSyEXH7u61G8"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-cream/60 hover:text-cream/80 transition-colors inline-flex items-center gap-1 underline underline-offset-2"
+                    >
+                      <Navigation className="w-3 h-3" />
+                      點擊導航
+                    </a>
+                  </div>
                 </div>
               </div>
               <div className="flex items-start gap-3">
