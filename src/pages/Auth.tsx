@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Lock, Mail, Loader2, LogIn, UserPlus, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errorHandler";
 
 const authSchema = z.object({
   email: z.string().trim().email({ message: "請輸入有效的電子郵件地址" }),
@@ -63,19 +64,18 @@ const Auth = () => {
     if (!validateForm()) return;
 
     setIsSubmitting(true);
-    const { error } = await signIn(email, password);
-    setIsSubmitting(false);
-
-    if (error) {
-      if (error.message.includes("Invalid login credentials")) {
-        toast.error("電子郵件或密碼錯誤");
-      } else if (error.message.includes("Email not confirmed")) {
-        toast.error("請先確認您的電子郵件");
+    try {
+      const { error } = await signIn(email, password);
+      
+      if (error) {
+        toast.error(getErrorMessage(error));
       } else {
-        toast.error("登入失敗：" + error.message);
+        toast.success("登入成功！");
       }
-    } else {
-      toast.success("登入成功！");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
