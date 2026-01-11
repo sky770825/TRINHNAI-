@@ -2334,17 +2334,23 @@ const CRM = () => {
                 支援 JPG、PNG、WebP 格式，檔案大小限制 5MB
               </p>
               {imagePreview && (
-                <div className="relative mt-2">
-                  <img 
-                    src={imagePreview} 
-                    alt="預覽"
-                    className="w-full h-32 object-cover rounded"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                  <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs">
-                    {serviceForm.aspect_ratio}
+                <div className="mt-2 flex justify-center">
+                  <div className="relative max-w-sm w-full">
+                    <img 
+                      src={imagePreview} 
+                      alt="預覽"
+                      className="w-full object-cover rounded"
+                      style={{
+                        aspectRatio: serviceForm.aspect_ratio.replace(':', '/'),
+                        maxHeight: '200px'
+                      }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium">
+                      {serviceForm.aspect_ratio}
+                    </div>
                   </div>
                 </div>
               )}
