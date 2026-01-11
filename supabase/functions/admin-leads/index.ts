@@ -293,7 +293,7 @@ serve(async (req) => {
       );
     }
 
-    const { password, action, bookingId, newStatus, lineUserId, notes, tags, targetGroup, message, remarketingMessageId, hoursAfterInterest, messageContent, isActive, leadId } = validation.data;
+    const { password, action, bookingId, newStatus, lineUserId, notes, tags, targetGroup, message, remarketingMessageId, hoursAfterInterest, messageContent, isActive, leadId, lineBookingId } = validation.data;
     
     // Check JWT auth first (from Authorization header)
     const authHeader = req.headers.get('Authorization');
@@ -622,14 +622,14 @@ serve(async (req) => {
     }
 
     // Handle sendBookingConfirmation action - send LINE booking confirmation message
-    if (action === 'sendBookingConfirmation' && request.lineBookingId) {
-      console.log(`Sending booking confirmation for booking ${request.lineBookingId}`);
+    if (action === 'sendBookingConfirmation' && lineBookingId) {
+      console.log(`Sending booking confirmation for booking ${lineBookingId}`);
       
       // Get booking details
       const { data: booking, error: bookingError } = await supabase
         .from('line_bookings')
         .select('*')
-        .eq('id', request.lineBookingId)
+        .eq('id', lineBookingId)
         .single();
 
       if (bookingError || !booking) {
@@ -689,7 +689,7 @@ serve(async (req) => {
           confirmed_at: new Date().toISOString(),
           confirmed_by: user?.email || 'admin',
         })
-        .eq('id', request.lineBookingId);
+        .eq('id', lineBookingId);
 
       // Send LINE message
       const accessToken = Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN');
@@ -756,7 +756,7 @@ serve(async (req) => {
 
       console.log("Booking confirmation sent successfully");
       return new Response(
-        JSON.stringify({ success: true, bookingId: request.lineBookingId }),
+        JSON.stringify({ success: true, bookingId: lineBookingId }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
