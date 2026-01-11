@@ -1411,6 +1411,352 @@ const CRM = () => {
             </motion.div>
           </TabsContent>
 
+          {/* Services Tab */}
+          <TabsContent value="services">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden"
+            >
+              <div className="p-6 border-b border-border/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                      <Image className="w-5 h-5 text-primary" />
+                      服務項目管理
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      管理 LINE 預約的服務項目和圖片
+                    </p>
+                  </div>
+                  <Button onClick={() => openServiceDialog()}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    新增服務
+                  </Button>
+                </div>
+              </div>
+
+              {isLoadingServices ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground">載入服務中...</span>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>狀態</TableHead>
+                        <TableHead>圖片</TableHead>
+                        <TableHead>服務 ID</TableHead>
+                        <TableHead>名稱</TableHead>
+                        <TableHead>描述</TableHead>
+                        <TableHead>價格</TableHead>
+                        <TableHead>排序</TableHead>
+                        <TableHead>操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {services.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                            尚未設定任何服務項目
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        services.map((service) => (
+                          <TableRow key={service.id}>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleServiceActive(service.id, service.is_active)}
+                                className={service.is_active ? "text-green-600" : "text-gray-400"}
+                              >
+                                {service.is_active ? (
+                                  <Power className="w-4 h-4" />
+                                ) : (
+                                  <PowerOff className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </TableCell>
+                            <TableCell>
+                              <img 
+                                src={service.image_url} 
+                                alt={service.name}
+                                className="w-16 h-16 object-cover rounded"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150';
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">{service.service_id}</TableCell>
+                            <TableCell className="font-medium">{service.name}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                              {service.description}
+                            </TableCell>
+                            <TableCell className="text-sm">{service.price_range}</TableCell>
+                            <TableCell className="font-mono">{service.sort_order}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openServiceDialog(service)}
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteService(service.id)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </motion.div>
+          </TabsContent>
+
+          {/* Stores Tab */}
+          <TabsContent value="stores">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden"
+            >
+              <div className="p-6 border-b border-border/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                      <Store className="w-5 h-5 text-primary" />
+                      分店設定管理
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      設定分店營業時間和可預約時段
+                    </p>
+                  </div>
+                  <Button onClick={() => openStoreDialog()}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    新增分店
+                  </Button>
+                </div>
+              </div>
+
+              {isLoadingStores ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground">載入分店中...</span>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>狀態</TableHead>
+                        <TableHead>分店 ID</TableHead>
+                        <TableHead>名稱</TableHead>
+                        <TableHead>地址</TableHead>
+                        <TableHead>營業時間</TableHead>
+                        <TableHead>時段間隔</TableHead>
+                        <TableHead>營業日</TableHead>
+                        <TableHead>操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stores.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                            尚未設定任何分店
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        stores.map((store) => (
+                          <TableRow key={store.id}>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleStoreActive(store.id, store.is_active)}
+                                className={store.is_active ? "text-green-600" : "text-gray-400"}
+                              >
+                                {store.is_active ? (
+                                  <Power className="w-4 h-4" />
+                                ) : (
+                                  <PowerOff className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">{store.store_id}</TableCell>
+                            <TableCell className="font-medium">{store.name}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {store.address || '-'}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {store.opening_time} - {store.closing_time}
+                            </TableCell>
+                            <TableCell className="text-sm">{store.time_slot_duration} 分鐘</TableCell>
+                            <TableCell className="text-sm">
+                              {store.available_days.length === 7 ? '全週' : `${store.available_days.length} 天`}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openStoreDialog(store)}
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </motion.div>
+          </TabsContent>
+
+          {/* Bookings Tab */}
+          <TabsContent value="bookings">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden"
+            >
+              <div className="p-6 border-b border-border/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-primary" />
+                      預約管理
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      查看和管理所有 LINE 預約
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select value={bookingFilter} onValueChange={setBookingFilter}>
+                      <SelectTrigger className="w-[140px]">
+                        <Filter className="w-4 h-4 mr-2" />
+                        <SelectValue placeholder="狀態篩選" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全部</SelectItem>
+                        <SelectItem value="pending">待確認</SelectItem>
+                        <SelectItem value="confirmed">已確認</SelectItem>
+                        <SelectItem value="cancelled">已取消</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="sm" onClick={fetchBookings}>
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {isLoadingBookings ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground">載入預約中...</span>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>預約日期</TableHead>
+                        <TableHead>時間</TableHead>
+                        <TableHead>顧客</TableHead>
+                        <TableHead>電話</TableHead>
+                        <TableHead>服務</TableHead>
+                        <TableHead>分店</TableHead>
+                        <TableHead>狀態</TableHead>
+                        <TableHead>建立時間</TableHead>
+                        <TableHead>操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {bookings
+                        .filter(b => bookingFilter === 'all' || b.status === bookingFilter)
+                        .length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
+                            目前沒有預約記錄
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        bookings
+                          .filter(b => bookingFilter === 'all' || b.status === bookingFilter)
+                          .map((booking) => (
+                            <TableRow key={booking.id}>
+                              <TableCell className="font-medium">{booking.booking_date}</TableCell>
+                              <TableCell>{booking.booking_time}</TableCell>
+                              <TableCell>{booking.user_name || '-'}</TableCell>
+                              <TableCell className="font-mono text-sm">{booking.phone || '-'}</TableCell>
+                              <TableCell>{booking.service}</TableCell>
+                              <TableCell>{booking.store}</TableCell>
+                              <TableCell>
+                                <Badge 
+                                  variant={
+                                    booking.status === 'confirmed' ? 'default' : 
+                                    booking.status === 'pending' ? 'secondary' : 
+                                    'outline'
+                                  }
+                                >
+                                  {booking.status === 'pending' && '待確認'}
+                                  {booking.status === 'confirmed' && '已確認'}
+                                  {booking.status === 'cancelled' && '已取消'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {new Date(booking.created_at).toLocaleString('zh-TW')}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  {booking.status === 'pending' && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => confirmBooking(booking.id)}
+                                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                      title="確認預約"
+                                    >
+                                      <CheckCircle className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                  {booking.status !== 'cancelled' && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => cancelBooking(booking.id)}
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      title="取消預約"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </motion.div>
+          </TabsContent>
+
           {/* Settings Tab */}
           <TabsContent value="settings">
             <motion.div
@@ -1796,6 +2142,232 @@ const CRM = () => {
               取消
             </Button>
             <Button onClick={saveKeyword}>
+              <Save className="w-4 h-4 mr-2" />
+              儲存
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Service Dialog */}
+      <Dialog open={isServiceDialogOpen} onOpenChange={setIsServiceDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Image className="w-5 h-5 text-primary" />
+              {editingService ? '編輯服務項目' : '新增服務項目'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">服務 ID *</label>
+                <Input
+                  placeholder="例如：nail, lash"
+                  value={serviceForm.service_id}
+                  onChange={(e) => setServiceForm({ ...serviceForm, service_id: e.target.value })}
+                  disabled={!!editingService}
+                />
+                <p className="text-xs text-muted-foreground">
+                  英文小寫，用於系統識別
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">服務名稱 *</label>
+                <Input
+                  placeholder="例如：💅 美甲服務"
+                  value={serviceForm.name}
+                  onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">服務描述 *</label>
+              <Input
+                placeholder="例如：凝膠指甲 | 光療指甲 | 指甲彩繪"
+                value={serviceForm.description}
+                onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">價格範圍 *</label>
+                <Input
+                  placeholder="例如：NT$ 150 - 990"
+                  value={serviceForm.price_range}
+                  onChange={(e) => setServiceForm({ ...serviceForm, price_range: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">排序</label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={serviceForm.sort_order}
+                  onChange={(e) => setServiceForm({ ...serviceForm, sort_order: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">圖片網址 *</label>
+              <Input
+                placeholder="https://images.unsplash.com/..."
+                value={serviceForm.image_url}
+                onChange={(e) => setServiceForm({ ...serviceForm, image_url: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                推薦使用 Unsplash 或 Pexels 的圖片網址
+              </p>
+              {serviceForm.image_url && (
+                <img 
+                  src={serviceForm.image_url} 
+                  alt="預覽"
+                  className="w-full h-32 object-cover rounded mt-2"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsServiceDialogOpen(false)}
+            >
+              <X className="w-4 h-4 mr-2" />
+              取消
+            </Button>
+            <Button onClick={saveService}>
+              <Save className="w-4 h-4 mr-2" />
+              儲存
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Store Dialog */}
+      <Dialog open={isStoreDialogOpen} onOpenChange={setIsStoreDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Store className="w-5 h-5 text-primary" />
+              {editingStore ? '編輯分店設定' : '新增分店'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">分店 ID *</label>
+                <Input
+                  placeholder="例如：yuanhua"
+                  value={storeForm.store_id}
+                  onChange={(e) => setStoreForm({ ...storeForm, store_id: e.target.value })}
+                  disabled={!!editingStore}
+                />
+                <p className="text-xs text-muted-foreground">
+                  英文小寫，用於系統識別
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">分店名稱 *</label>
+                <Input
+                  placeholder="例如：中壢元化店"
+                  value={storeForm.name}
+                  onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">地址</label>
+              <Input
+                placeholder="例如：中壢區元化路XX號"
+                value={storeForm.address}
+                onChange={(e) => setStoreForm({ ...storeForm, address: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">開始營業</label>
+                <Input
+                  type="time"
+                  value={storeForm.opening_time}
+                  onChange={(e) => setStoreForm({ ...storeForm, opening_time: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">結束營業</label>
+                <Input
+                  type="time"
+                  value={storeForm.closing_time}
+                  onChange={(e) => setStoreForm({ ...storeForm, closing_time: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">時段間隔（分鐘）</label>
+                <Input
+                  type="number"
+                  value={storeForm.time_slot_duration}
+                  onChange={(e) => setStoreForm({ ...storeForm, time_slot_duration: parseInt(e.target.value) || 60 })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">營業日</label>
+              <div className="flex gap-2">
+                {['日', '一', '二', '三', '四', '五', '六'].map((day, index) => (
+                  <Button
+                    key={index}
+                    variant={storeForm.available_days.includes(index.toString()) ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      const dayStr = index.toString();
+                      if (storeForm.available_days.includes(dayStr)) {
+                        setStoreForm({
+                          ...storeForm,
+                          available_days: storeForm.available_days.filter(d => d !== dayStr)
+                        });
+                      } else {
+                        setStoreForm({
+                          ...storeForm,
+                          available_days: [...storeForm.available_days, dayStr]
+                        });
+                      }
+                    }}
+                  >
+                    {day}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                點擊選擇營業日
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsStoreDialogOpen(false)}
+            >
+              <X className="w-4 h-4 mr-2" />
+              取消
+            </Button>
+            <Button onClick={saveStore}>
               <Save className="w-4 h-4 mr-2" />
               儲存
             </Button>
