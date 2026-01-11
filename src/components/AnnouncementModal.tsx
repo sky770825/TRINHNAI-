@@ -45,7 +45,7 @@ export const AnnouncementModal = ({ isOpen, onClose }: AnnouncementModalProps) =
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
         console.error("Error fetching announcement:", error);
