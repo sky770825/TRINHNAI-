@@ -10,7 +10,7 @@ import {
   LogOut, Loader2, Users, Search, MessageCircle, 
   RefreshCw, User, Calendar, Tag, Edit2, Save, X, Clock,
   CreditCard, CheckCircle, Send, Megaphone, Filter, Repeat,
-  Download, ClipboardList, ExternalLink
+  Download, ClipboardList, ExternalLink, Settings
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -93,6 +93,11 @@ const CRM = () => {
   
   // Filter state
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
+  
+  // Bot settings state
+  const [botSettings, setBotSettings] = useState<Record<string, { value: string; description: string }>>({});
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const filteredUsers = lineUsers.filter((user) => {
     const query = searchQuery.toLowerCase();
@@ -119,7 +124,62 @@ const CRM = () => {
   // Load data on mount
   useEffect(() => {
     fetchData();
+    fetchBotSettings();
   }, []);
+
+  const fetchBotSettings = async () => {
+    setIsLoadingSettings(true);
+    try {
+      const { data, error } = await supabase
+        .from('bot_settings')
+        .select('key, value, description');
+      
+      if (error) {
+        console.error("Error fetching bot settings:", error);
+        return;
+      }
+      
+      const settingsMap: Record<string, { value: string; description: string }> = {};
+      for (const row of data || []) {
+        settingsMap[row.key] = { value: row.value, description: row.description || '' };
+      }
+      setBotSettings(settingsMap);
+    } catch (err) {
+      console.error("Error fetching bot settings:", err);
+    } finally {
+      setIsLoadingSettings(false);
+    }
+  };
+
+  const handleSettingChange = (key: string, value: string) => {
+    setBotSettings(prev => ({
+      ...prev,
+      [key]: { ...prev[key], value }
+    }));
+  };
+
+  const saveBotSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      for (const [key, { value }] of Object.entries(botSettings)) {
+        const { error } = await supabase
+          .from('bot_settings')
+          .update({ value, updated_at: new Date().toISOString() })
+          .eq('key', key);
+        
+        if (error) {
+          console.error(`Error updating ${key}:`, error);
+          toast.error(`更新 ${key} 失敗`);
+          return;
+        }
+      }
+      toast.success("設定已儲存！LINE 機器人將使用新的設定。");
+    } catch (err) {
+      toast.error("儲存設定失敗");
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -444,6 +504,10 @@ const CRM = () => {
               <Repeat className="w-4 h-4" />
               再行銷設定
             </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              機器人設定
+            </TabsTrigger>
           </TabsList>
 
           {/* Users Tab */}
@@ -649,6 +713,146 @@ const CRM = () => {
               className="bg-card rounded-2xl shadow-card border border-border/50 p-6"
             >
               <RemarketingManager />
+            </motion.div>
+          </TabsContent>
+
+          {/* Settings Tab */}
+          <TabsContent value="settings">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-card rounded-2xl shadow-card border border-border/50 p-6"
+            >
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                      <Settings className="w-5 h-5 text-primary" />
+                      LINE 機器人設定
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      修改後儲存，LINE 機器人會自動使用新設定
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={saveBotSettings} 
+                    disabled={isSavingSettings || isLoadingSettings}
+                  >
+                    {isSavingSettings ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
+                    儲存設定
+                  </Button>
+                </div>
+
+                {isLoadingSettings ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    <span className="ml-2 text-muted-foreground">載入設定中...</span>
+                  </div>
+                ) : (
+                  <div className="grid gap-6">
+                    {/* Registration Info Section */}
+                    <div className="border border-border rounded-lg p-4">
+                      <h3 className="font-medium text-lg mb-4 flex items-center gap-2">
+                        📋 報名資訊
+                      </h3>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">活動名稱</label>
+                          <Input
+                            value={botSettings.event_name?.value || ''}
+                            onChange={(e) => handleSettingChange('event_name', e.target.value)}
+                            placeholder="美甲課程報名"
+                          />
+                          <p className="text-xs text-muted-foreground">{botSettings.event_name?.description}</p>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">價格</label>
+                          <Input
+                            value={botSettings.price?.value || ''}
+                            onChange={(e) => handleSettingChange('price', e.target.value)}
+                            placeholder="NT$ 3,000"
+                          />
+                          <p className="text-xs text-muted-foreground">{botSettings.price?.description}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bank Info Section */}
+                    <div className="border border-border rounded-lg p-4">
+                      <h3 className="font-medium text-lg mb-4 flex items-center gap-2">
+                        🏦 匯款資訊
+                      </h3>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">銀行名稱</label>
+                          <Input
+                            value={botSettings.bank_name?.value || ''}
+                            onChange={(e) => handleSettingChange('bank_name', e.target.value)}
+                            placeholder="國泰世華銀行"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">銀行代碼</label>
+                          <Input
+                            value={botSettings.bank_code?.value || ''}
+                            onChange={(e) => handleSettingChange('bank_code', e.target.value)}
+                            placeholder="013"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">銀行帳號</label>
+                          <Input
+                            value={botSettings.account_number?.value || ''}
+                            onChange={(e) => handleSettingChange('account_number', e.target.value)}
+                            placeholder="123-456-789-012"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">戶名</label>
+                          <Input
+                            value={botSettings.account_name?.value || ''}
+                            onChange={(e) => handleSettingChange('account_name', e.target.value)}
+                            placeholder="Trinh Nai 美甲工作室"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Messages Section */}
+                    <div className="border border-border rounded-lg p-4">
+                      <h3 className="font-medium text-lg mb-4 flex items-center gap-2">
+                        💬 訊息設定
+                      </h3>
+                      <div className="grid gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">歡迎訊息</label>
+                          <Textarea
+                            value={botSettings.welcome_message?.value || ''}
+                            onChange={(e) => handleSettingChange('welcome_message', e.target.value)}
+                            placeholder="歡迎加入！🎉\n\n輸入「報名」即可開始報名流程。"
+                            rows={3}
+                          />
+                          <p className="text-xs text-muted-foreground">用戶加入好友時會收到這個訊息</p>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">報名成功訊息</label>
+                          <Textarea
+                            value={botSettings.success_message?.value || ''}
+                            onChange={(e) => handleSettingChange('success_message', e.target.value)}
+                            placeholder="✅ 已收到您的匯款資訊！..."
+                            rows={3}
+                          />
+                          <p className="text-xs text-muted-foreground">用戶完成報名後會收到這個訊息</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </motion.div>
           </TabsContent>
         </Tabs>

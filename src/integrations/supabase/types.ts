@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_settings: {
+        Row: {
+          id: string
+          key: string
+          value: string
+          description: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          value: string
+          description?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          value?: string
+          description?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bookings: {
         Row: {
           booking_date: string

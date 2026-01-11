@@ -11,15 +11,33 @@ const corsHeaders = {
 // LINE Messaging API endpoints
 const LINE_API_BASE = "https://api.line.me/v2/bot";
 
-// Registration info configuration
-const REGISTRATION_INFO = {
-  eventName: "美甲課程報名",
-  price: "NT$ 3,000",
-  bankName: "國泰世華銀行",
-  bankCode: "013",
-  accountNumber: "123-456-789-012",
-  accountName: "Trinh Nai 美甲工作室",
-};
+// Get bot settings from database
+async function getBotSettings(supabase: ReturnType<typeof createClient>): Promise<Record<string, string>> {
+  const { data, error } = await supabase
+    .from('bot_settings')
+    .select('key, value');
+  
+  if (error) {
+    console.error("Error fetching bot settings:", error);
+    // Return defaults if error
+    return {
+      event_name: "美甲課程報名",
+      price: "NT$ 3,000",
+      bank_name: "國泰世華銀行",
+      bank_code: "013",
+      account_number: "123-456-789-012",
+      account_name: "Trinh Nai 美甲工作室",
+      welcome_message: "歡迎加入！🎉\n\n輸入「報名」即可開始報名流程。",
+      success_message: "✅ 已收到您的匯款資訊！\n\n我們會盡快確認，確認後會發送通知給您。\n\n感謝您的報名！🎉",
+    };
+  }
+  
+  const settings: Record<string, string> = {};
+  for (const row of data || []) {
+    settings[row.key] = row.value;
+  }
+  return settings;
+}
 
 // Verify LINE signature
 async function verifySignature(body: string, signature: string, channelSecret: string): Promise<boolean> {
@@ -143,6 +161,9 @@ serve(async (req) => {
     console.log("Received webhook:", JSON.stringify(body));
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Get bot settings from database
+    const settings = await getBotSettings(supabase);
 
     // Process each event
     for (const event of body.events || []) {
@@ -197,7 +218,7 @@ serve(async (req) => {
 
         await sendLineMessage(replyToken, [{
           type: "text",
-          text: `歡迎加入 ${REGISTRATION_INFO.accountName}！🎉\n\n輸入「報名」即可開始報名流程。`,
+          text: settings.welcome_message || `歡迎加入 ${settings.account_name}！🎉\n\n輸入「報名」即可開始報名流程。`,
         }], accessToken);
         continue;
       }
@@ -232,7 +253,7 @@ serve(async (req) => {
           await sendLineMessage(replyToken, [
             {
               type: "text",
-              text: `📋 ${REGISTRATION_INFO.eventName}\n\n💰 費用：${REGISTRATION_INFO.price}\n\n🏦 匯款資訊：\n銀行：${REGISTRATION_INFO.bankName}\n銀行代碼：${REGISTRATION_INFO.bankCode}\n帳號：${REGISTRATION_INFO.accountNumber}\n戶名：${REGISTRATION_INFO.accountName}`,
+              text: `📋 ${settings.event_name}\n\n💰 費用：${settings.price}\n\n🏦 匯款資訊：\n銀行：${settings.bank_name}\n銀行代碼：${settings.bank_code}\n帳號：${settings.account_number}\n戶名：${settings.account_name}`,
             },
             {
               type: "template",
@@ -264,7 +285,7 @@ serve(async (req) => {
             await sendLineMessage(replyToken, [
               {
                 type: "text",
-                text: `${REGISTRATION_INFO.bankName}\n銀行代碼：${REGISTRATION_INFO.bankCode}\n帳號：${REGISTRATION_INFO.accountNumber}\n戶名：${REGISTRATION_INFO.accountName}\n金額：${REGISTRATION_INFO.price}`,
+                text: `${settings.bank_name}\n銀行代碼：${settings.bank_code}\n帳號：${settings.account_number}\n戶名：${settings.account_name}\n金額：${settings.price}`,
               },
               {
                 type: "template",
