@@ -12,7 +12,7 @@ import {
   CreditCard, CheckCircle, Send, Megaphone, Filter, Repeat,
   Download, ClipboardList, ExternalLink, Settings, Plus, Trash2,
   Key, Power, PowerOff, ArrowUp, ArrowDown, Store, Image, Upload,
-  Ban, CalendarX
+  Ban, CalendarX, CalendarDays, List
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -44,6 +44,10 @@ import {
 } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import RemarketingManager from "@/components/RemarketingManager";
+import { DayPicker } from "react-day-picker";
+import { format, isSameDay, parseISO, startOfDay } from "date-fns";
+import { zhTW } from "date-fns/locale";
+import "react-day-picker/dist/style.css";
 
 interface LineUser {
   id: string;
@@ -202,6 +206,8 @@ const CRM = () => {
   const [bookings, setBookings] = useState<LineBooking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(false);
   const [bookingFilter, setBookingFilter] = useState<string>("all");
+  const [bookingView, setBookingView] = useState<"table" | "calendar">("table");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   const filteredUsers = lineUsers.filter((user) => {
     const query = searchQuery.toLowerCase();
@@ -817,6 +823,33 @@ const CRM = () => {
     } catch (err) {
       toast.error("取消失敗");
     }
+  };
+
+  // Calendar helper functions
+  const getBookingsForDate = (date: Date) => {
+    return bookings.filter(booking => {
+      try {
+        const bookingDate = parseISO(booking.booking_date);
+        return isSameDay(bookingDate, date);
+      } catch {
+        return false;
+      }
+    }).sort((a, b) => {
+      // Sort by time
+      const timeA = a.booking_time || '00:00';
+      const timeB = b.booking_time || '00:00';
+      return timeA.localeCompare(timeB);
+    });
+  };
+
+  const getDatesWithBookings = () => {
+    const dates = new Set<string>();
+    bookings.forEach(booking => {
+      if (booking.booking_date) {
+        dates.add(booking.booking_date);
+      }
+    });
+    return Array.from(dates).map(date => parseISO(date));
   };
 
   const fetchData = async () => {
@@ -1744,6 +1777,26 @@ const CRM = () => {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <div className="flex items-center border rounded-md">
+                      <Button
+                        variant={bookingView === "table" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setBookingView("table")}
+                        className="rounded-r-none"
+                      >
+                        <List className="w-4 h-4 mr-1" />
+                        列表
+                      </Button>
+                      <Button
+                        variant={bookingView === "calendar" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setBookingView("calendar")}
+                        className="rounded-l-none"
+                      >
+                        <CalendarDays className="w-4 h-4 mr-1" />
+                        行事曆
+                      </Button>
+                    </div>
                     <Select value={bookingFilter} onValueChange={setBookingFilter}>
                       <SelectTrigger className="w-[140px]">
                         <Filter className="w-4 h-4 mr-2" />
@@ -1767,6 +1820,156 @@ const CRM = () => {
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                   <span className="ml-2 text-muted-foreground">載入預約中...</span>
+                </div>
+              ) : bookingView === "calendar" ? (
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Calendar */}
+                  <div className="bg-background rounded-lg border p-4">
+                    <DayPicker
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      locale={zhTW}
+                      modifiers={{
+                        hasBookings: getDatesWithBookings(),
+                      }}
+                      modifiersStyles={{
+                        hasBookings: {
+                          backgroundColor: 'hsl(var(--primary) / 0.2)',
+                          color: 'hsl(var(--primary))',
+                          fontWeight: 'bold',
+                        },
+                      }}
+                      className="w-full"
+                      classNames={{
+                        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+                        month: "space-y-4",
+                        caption: "flex justify-center pt-1 relative items-center",
+                        caption_label: "text-sm font-medium",
+                        nav: "space-x-1 flex items-center",
+                        nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
+                        nav_button_previous: "absolute left-1",
+                        nav_button_next: "absolute right-1",
+                        table: "w-full border-collapse space-y-1",
+                        head_row: "flex",
+                        head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
+                        row: "flex w-full mt-2",
+                        cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                        day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100",
+                        day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                        day_today: "bg-accent text-accent-foreground",
+                        day_outside: "text-muted-foreground opacity-50",
+                        day_disabled: "text-muted-foreground opacity-50",
+                        day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
+                        day_hidden: "invisible",
+                      }}
+                    />
+                  </div>
+
+                  {/* Selected Date Bookings */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">
+                        {selectedDate ? format(selectedDate, "yyyy年MM月dd日 (EEEE)", { locale: zhTW }) : "選擇日期"}
+                      </h3>
+                      <Badge variant="secondary">
+                        {selectedDate ? getBookingsForDate(selectedDate).length : 0} 個預約
+                      </Badge>
+                    </div>
+                    
+                    {selectedDate ? (
+                      <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                        {getBookingsForDate(selectedDate)
+                          .filter(b => bookingFilter === 'all' || b.status === bookingFilter)
+                          .length === 0 ? (
+                          <div className="text-center text-muted-foreground py-12">
+                            此日期沒有預約記錄
+                          </div>
+                        ) : (
+                          getBookingsForDate(selectedDate)
+                            .filter(b => bookingFilter === 'all' || b.status === bookingFilter)
+                            .map((booking) => (
+                              <div
+                                key={booking.id}
+                                className="border rounded-lg p-4 space-y-2 hover:bg-accent/50 transition-colors"
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="space-y-1 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <Clock className="w-4 h-4 text-muted-foreground" />
+                                      <span className="font-semibold">{booking.booking_time}</span>
+                                      <Badge 
+                                        variant={
+                                          booking.status === 'confirmed' ? 'default' : 
+                                          booking.status === 'pending' ? 'secondary' : 
+                                          'outline'
+                                        }
+                                        className="ml-2"
+                                      >
+                                        {booking.status === 'pending' && '待確認'}
+                                        {booking.status === 'confirmed' && '已確認'}
+                                        {booking.status === 'cancelled' && '已取消'}
+                                      </Badge>
+                                    </div>
+                                    <div className="text-sm space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <User className="w-4 h-4 text-muted-foreground" />
+                                        <span>{booking.user_name || '-'}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground">電話：</span>
+                                        <span className="font-mono text-sm">{booking.phone || '-'}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground">服務：</span>
+                                        <span>{booking.service}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <Store className="w-4 h-4 text-muted-foreground" />
+                                        <span>{booking.store}</span>
+                                      </div>
+                                      {booking.notes && (
+                                        <div className="text-xs text-muted-foreground mt-2">
+                                          {booking.notes}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    {booking.status === 'pending' && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => confirmBooking(booking.id)}
+                                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                        title="確認預約"
+                                      >
+                                        <CheckCircle className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                    {booking.status !== 'cancelled' && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => cancelBooking(booking.id)}
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        title="取消預約"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center text-muted-foreground py-12">
+                        請選擇一個日期查看預約
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
