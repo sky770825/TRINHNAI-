@@ -161,6 +161,51 @@ export type Database = {
         }
         Relationships: []
       }
+      line_bookings: {
+        Row: {
+          id: string
+          line_user_id: string
+          user_name: string | null
+          phone: string | null
+          service: string
+          store: string
+          booking_date: string
+          booking_time: string
+          notes: string | null
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          line_user_id: string
+          user_name?: string | null
+          phone?: string | null
+          service: string
+          store: string
+          booking_date: string
+          booking_time: string
+          notes?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          line_user_id?: string
+          user_name?: string | null
+          phone?: string | null
+          service?: string
+          store?: string
+          booking_date?: string
+          booking_time?: string
+          notes?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       line_users: {
         Row: {
           conversation_state: string | null

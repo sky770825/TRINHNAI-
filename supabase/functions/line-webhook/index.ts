@@ -161,6 +161,299 @@ function isValidLast5Digits(input: string): boolean {
   return /^\d{5}$/.test(input.trim());
 }
 
+// Generate services Flex Message with images
+function createServicesFlexMessage() {
+  return {
+    type: "flex",
+    altText: "服務項目選單",
+    contents: {
+      type: "carousel",
+      contents: [
+        {
+          type: "bubble",
+          hero: {
+            type: "image",
+            url: "https://images.unsplash.com/photo-1604654894610-df63bc536371?w=800",
+            size: "full",
+            aspectRatio: "20:13",
+            aspectMode: "cover"
+          },
+          body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: "💅 美甲服務",
+                weight: "bold",
+                size: "xl",
+                color: "#D4AF37"
+              },
+              {
+                type: "text",
+                text: "凝膠指甲 | 光療指甲 | 指甲彩繪",
+                size: "sm",
+                color: "#999999",
+                margin: "md"
+              },
+              {
+                type: "text",
+                text: "NT$ 150 - 990",
+                size: "xxl",
+                weight: "bold",
+                color: "#000000",
+                margin: "lg"
+              }
+            ]
+          },
+          footer: {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+              {
+                type: "button",
+                style: "primary",
+                height: "sm",
+                action: {
+                  type: "message",
+                  label: "立即預約",
+                  text: "預約美甲"
+                },
+                color: "#D4AF37"
+              }
+            ]
+          }
+        },
+        {
+          type: "bubble",
+          hero: {
+            type: "image",
+            url: "https://images.unsplash.com/photo-1583001931096-959a1f0c12e8?w=800",
+            size: "full",
+            aspectRatio: "20:13",
+            aspectMode: "cover"
+          },
+          body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: "👁️ 美睫服務",
+                weight: "bold",
+                size: "xl",
+                color: "#D4AF37"
+              },
+              {
+                type: "text",
+                text: "睫毛嫁接 | 美睫設計 | 睫毛保養",
+                size: "sm",
+                color: "#999999",
+                margin: "md"
+              },
+              {
+                type: "text",
+                text: "NT$ 790 - 1,290",
+                size: "xxl",
+                weight: "bold",
+                color: "#000000",
+                margin: "lg"
+              }
+            ]
+          },
+          footer: {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+              {
+                type: "button",
+                style: "primary",
+                height: "sm",
+                action: {
+                  type: "message",
+                  label: "立即預約",
+                  text: "預約美睫"
+                },
+                color: "#D4AF37"
+              }
+            ]
+          }
+        },
+        {
+          type: "bubble",
+          hero: {
+            type: "image",
+            url: "https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?w=800",
+            size: "full",
+            aspectRatio: "20:13",
+            aspectMode: "cover"
+          },
+          body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: "✨ 紋繡服務",
+                weight: "bold",
+                size: "xl",
+                color: "#D4AF37"
+              },
+              {
+                type: "text",
+                text: "霧眉 | 飄眉 | 眼線 | 美瞳線",
+                size: "sm",
+                color: "#999999",
+                margin: "md"
+              },
+              {
+                type: "text",
+                text: "NT$ 3,990 - 11,990",
+                size: "xxl",
+                weight: "bold",
+                color: "#000000",
+                margin: "lg"
+              }
+            ]
+          },
+          footer: {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+              {
+                type: "button",
+                style: "primary",
+                height: "sm",
+                action: {
+                  type: "message",
+                  label: "立即預約",
+                  text: "預約紋繡"
+                },
+                color: "#D4AF37"
+              }
+            ]
+          }
+        },
+        {
+          type: "bubble",
+          hero: {
+            type: "image",
+            url: "https://images.unsplash.com/photo-1560750588-73207b1ef5b8?w=800",
+            size: "full",
+            aspectRatio: "20:13",
+            aspectMode: "cover"
+          },
+          body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: "🪶 熱蠟除毛",
+                weight: "bold",
+                size: "xl",
+                color: "#D4AF37"
+              },
+              {
+                type: "text",
+                text: "全身除毛 | 私密除毛 | 專業服務",
+                size: "sm",
+                color: "#999999",
+                margin: "md"
+              },
+              {
+                type: "text",
+                text: "NT$ 590 - 2,559",
+                size: "xxl",
+                weight: "bold",
+                color: "#000000",
+                margin: "lg"
+              }
+            ]
+          },
+          footer: {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+              {
+                type: "button",
+                style: "primary",
+                height: "sm",
+                action: {
+                  type: "message",
+                  label: "立即預約",
+                  text: "預約除毛"
+                },
+                color: "#D4AF37"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  };
+}
+
+// Create store selection Flex Message
+function createStoreSelectionMessage() {
+  return {
+    type: "flex",
+    altText: "選擇分店",
+    contents: {
+      type: "bubble",
+      body: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          {
+            type: "text",
+            text: "🏪 請選擇分店",
+            weight: "bold",
+            size: "xl",
+            color: "#D4AF37"
+          },
+          {
+            type: "separator",
+            margin: "lg"
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            margin: "lg",
+            spacing: "md",
+            contents: [
+              {
+                type: "button",
+                style: "primary",
+                action: {
+                  type: "message",
+                  label: "📍 中壢元化店（前站）",
+                  text: "元化店"
+                },
+                color: "#D4AF37"
+              },
+              {
+                type: "button",
+                style: "primary",
+                action: {
+                  type: "message",
+                  label: "📍 中壢忠福店（黃昏市場對面）",
+                  text: "忠福店"
+                },
+                color: "#D4AF37"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  };
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -398,6 +691,198 @@ serve(async (req) => {
               text: matchedKeyword.response_content,
             }], accessToken);
             continue;
+          }
+          
+          // Handle booking type keyword
+          if (matchedKeyword.response_type === 'booking') {
+            await sendLineMessage(replyToken, [createServicesFlexMessage()], accessToken);
+            continue;
+          }
+        }
+
+        // Handle booking flow - service selection
+        if (messageText.startsWith('預約')) {
+          const serviceMap: Record<string, string> = {
+            '預約美甲': 'nail',
+            '預約美睫': 'lash',
+            '預約紋繡': 'tattoo',
+            '預約除毛': 'waxing'
+          };
+          
+          const service = serviceMap[messageText];
+          if (service) {
+            // Save service selection and ask for store
+            await supabase
+              .from('line_users')
+              .update({ 
+                conversation_state: JSON.stringify({ step: 'booking_select_store', service })
+              })
+              .eq('id', user.id);
+            
+            await sendLineMessage(replyToken, [createStoreSelectionMessage()], accessToken);
+            continue;
+          }
+        }
+
+        // Handle store selection
+        if (conversationState) {
+          try {
+            const state = JSON.parse(conversationState);
+            
+            if (state.step === 'booking_select_store') {
+              const storeMap: Record<string, string> = {
+                '元化店': 'yuanhua',
+                '忠福店': 'zhongfu'
+              };
+              
+              const store = storeMap[messageText];
+              if (store) {
+                state.step = 'booking_input_date';
+                state.store = store;
+                
+                await supabase
+                  .from('line_users')
+                  .update({ conversation_state: JSON.stringify(state) })
+                  .eq('id', user.id);
+                
+                await sendLineMessage(replyToken, [{
+                  type: "text",
+                  text: "📅 請輸入預約日期\n\n格式：YYYY-MM-DD\n例如：2026-01-15"
+                }], accessToken);
+                continue;
+              }
+            }
+            
+            if (state.step === 'booking_input_date') {
+              // Validate date format
+              if (/^\d{4}-\d{2}-\d{2}$/.test(messageText)) {
+                const bookingDate = new Date(messageText);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                if (bookingDate >= today) {
+                  state.step = 'booking_input_time';
+                  state.booking_date = messageText;
+                  
+                  await supabase
+                    .from('line_users')
+                    .update({ conversation_state: JSON.stringify(state) })
+                    .eq('id', user.id);
+                  
+                  await sendLineMessage(replyToken, [{
+                    type: "text",
+                    text: "⏰ 請輸入預約時間\n\n格式：HH:MM\n例如：14:00\n\n營業時間：09:00 - 22:00"
+                  }], accessToken);
+                  continue;
+                } else {
+                  await sendLineMessage(replyToken, [{
+                    type: "text",
+                    text: "❌ 預約日期必須是今天或之後\n\n請重新輸入日期（格式：YYYY-MM-DD）"
+                  }], accessToken);
+                  continue;
+                }
+              } else {
+                await sendLineMessage(replyToken, [{
+                  type: "text",
+                  text: "❌ 日期格式錯誤\n\n請使用格式：YYYY-MM-DD\n例如：2026-01-15"
+                }], accessToken);
+                continue;
+              }
+            }
+            
+            if (state.step === 'booking_input_time') {
+              // Validate time format
+              if (/^([01]\d|2[0-3]):([0-5]\d)$/.test(messageText)) {
+                state.step = 'booking_input_name';
+                state.booking_time = messageText;
+                
+                await supabase
+                  .from('line_users')
+                  .update({ conversation_state: JSON.stringify(state) })
+                  .eq('id', user.id);
+                
+                await sendLineMessage(replyToken, [{
+                  type: "text",
+                  text: "👤 請輸入您的姓名"
+                }], accessToken);
+                continue;
+              } else {
+                await sendLineMessage(replyToken, [{
+                  type: "text",
+                  text: "❌ 時間格式錯誤\n\n請使用格式：HH:MM\n例如：14:00"
+                }], accessToken);
+                continue;
+              }
+            }
+            
+            if (state.step === 'booking_input_name') {
+              state.step = 'booking_input_phone';
+              state.user_name = messageText.trim();
+              
+              await supabase
+                .from('line_users')
+                .update({ conversation_state: JSON.stringify(state) })
+                .eq('id', user.id);
+              
+              await sendLineMessage(replyToken, [{
+                type: "text",
+                text: "📱 請輸入您的聯絡電話"
+              }], accessToken);
+              continue;
+            }
+            
+            if (state.step === 'booking_input_phone') {
+              state.phone = messageText.trim();
+              
+              // Create booking
+              const serviceNames: Record<string, string> = {
+                nail: '💅 美甲服務',
+                lash: '👁️ 美睫服務',
+                tattoo: '✨ 紋繡服務',
+                waxing: '🪶 熱蠟除毛'
+              };
+              
+              const storeNames: Record<string, string> = {
+                yuanhua: '中壢元化店（前站）',
+                zhongfu: '中壢忠福店（黃昏市場對面）'
+              };
+              
+              const { error: bookingError } = await supabase
+                .from('line_bookings')
+                .insert({
+                  line_user_id: user.line_user_id,
+                  user_name: state.user_name,
+                  phone: state.phone,
+                  service: state.service,
+                  store: state.store,
+                  booking_date: state.booking_date,
+                  booking_time: state.booking_time,
+                  status: 'pending'
+                });
+              
+              if (bookingError) {
+                console.error("Error creating booking:", bookingError);
+                await sendLineMessage(replyToken, [{
+                  type: "text",
+                  text: "❌ 預約失敗，請稍後再試或聯繫我們"
+                }], accessToken);
+              } else {
+                await sendLineMessage(replyToken, [{
+                  type: "text",
+                  text: `✅ 預約成功！\n\n👤 姓名：${state.user_name}\n📱 電話：${state.phone}\n💆 服務：${serviceNames[state.service]}\n🏪 分店：${storeNames[state.store]}\n📅 日期：${state.booking_date}\n⏰ 時間：${state.booking_time}\n\n我們會盡快與您確認預約，感謝您的預約！🎉`
+                }], accessToken);
+              }
+              
+              // Clear conversation state
+              await supabase
+                .from('line_users')
+                .update({ conversation_state: null })
+                .eq('id', user.id);
+              
+              continue;
+            }
+          } catch (e) {
+            console.error("Error parsing conversation state:", e);
           }
         }
 
