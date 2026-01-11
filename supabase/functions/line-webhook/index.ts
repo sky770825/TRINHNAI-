@@ -969,10 +969,55 @@ serve(async (req) => {
                       .eq('id', user.id);
                     
                     if (slots.length > 0) {
-                      const timeText = `⏰ 請選擇預約時間\n\n📅 ${messageText}\n🏪 ${state.store_name}\n\n可選時段：\n${slots.slice(0, 10).join('、')}\n\n請直接輸入時間（例如：${slots[0]}）`;
+                      // Create Flex Message with time slot buttons (max 12 per message)
+                      const timeSlotButtons = slots.slice(0, 12).map(slot => ({
+                        type: "button",
+                        style: "primary",
+                        action: {
+                          type: "message",
+                          label: slot,
+                          text: slot
+                        },
+                        color: "#D4AF37"
+                      }));
+
                       await sendLineMessage(replyToken, [{
-                        type: "text",
-                        text: timeText
+                        type: "flex",
+                        altText: "選擇預約時間",
+                        contents: {
+                          type: "bubble",
+                          body: {
+                            type: "box",
+                            layout: "vertical",
+                            contents: [
+                              {
+                                type: "text",
+                                text: "⏰ 請選擇預約時間",
+                                weight: "bold",
+                                size: "xl",
+                                color: "#D4AF37"
+                              },
+                              {
+                                type: "text",
+                                text: `📅 ${messageText}\n🏪 ${state.store_name}`,
+                                size: "sm",
+                                color: "#666666",
+                                margin: "md"
+                              },
+                              {
+                                type: "separator",
+                                margin: "lg"
+                              },
+                              {
+                                type: "box",
+                                layout: "vertical",
+                                margin: "lg",
+                                spacing: "sm",
+                                contents: timeSlotButtons
+                              }
+                            ]
+                          }
+                        }
                       }], accessToken);
                     } else {
                       await sendLineMessage(replyToken, [{
@@ -1004,9 +1049,9 @@ serve(async (req) => {
             }
             
             if (state.step === 'booking_input_time') {
-              // Validate time format and availability
+              // Validate time format (user clicked button, so format should be valid)
               if (/^([01]\d|2[0-3]):([0-5]\d)$/.test(messageText)) {
-                // Check if time slot is available
+                // Double check if time slot is still available (in case of race condition)
                 const { data: isBlocked } = await supabase
                   .from('booking_blocks')
                   .select('id')
@@ -1027,8 +1072,14 @@ serve(async (req) => {
                 if (isBlocked || isBooked) {
                   await sendLineMessage(replyToken, [{
                     type: "text",
-                    text: "❌ 此時段已被預約或不可用\n\n請選擇其他時段"
+                    text: "❌ 此時段剛被預約，請選擇其他時段"
                   }], accessToken);
+                  // Go back to show time slots again
+                  state.step = 'booking_input_date';
+                  await supabase
+                    .from('line_users')
+                    .update({ conversation_state: JSON.stringify(state) })
+                    .eq('id', user.id);
                   continue;
                 }
                 
@@ -1046,9 +1097,10 @@ serve(async (req) => {
                 }], accessToken);
                 continue;
               } else {
+                // Invalid time format (shouldn't happen if using buttons)
                 await sendLineMessage(replyToken, [{
                   type: "text",
-                  text: "❌ 時間格式錯誤\n\n請使用格式：HH:MM\n例如：14:00"
+                  text: "❌ 請點選上方按鈕選擇時間"
                 }], accessToken);
                 continue;
               }
