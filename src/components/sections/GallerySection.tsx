@@ -106,6 +106,7 @@ export const GallerySection = () => {
               <img
                 src={image.src}
                 alt={image.alt}
+                loading="lazy"
                 className="w-full h-full object-cover"
               />
             </button>

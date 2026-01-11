@@ -10,6 +10,7 @@ import { FAQSection } from "@/components/sections/FAQSection";
 import { Footer } from "@/components/sections/Footer";
 import { BookingModal } from "@/components/BookingModal";
 import { StickyCTA } from "@/components/StickyCTA";
+import { StructuredData } from "@/components/StructuredData";
 
 const Index = () => {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
@@ -19,6 +20,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <StructuredData />
       <Header onBookingClick={openBooking} />
       
       <main>

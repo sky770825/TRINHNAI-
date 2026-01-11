@@ -806,6 +806,7 @@ const CRM = () => {
           <img 
             src={service.image_url} 
             alt={service.name}
+            loading="lazy"
             className="w-16 h-16 object-cover rounded"
             onError={(e) => {
               (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150';
@@ -1474,6 +1475,7 @@ const CRM = () => {
                             <img
                               src={user.picture_url}
                               alt={user.display_name || "User"}
+                              loading="lazy"
                               className="w-10 h-10 rounded-full object-cover"
                             />
                           ) : (
