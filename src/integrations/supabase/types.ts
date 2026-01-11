@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      bot_keywords: {
+        Row: {
+          id: string
+          keyword: string
+          response_type: string
+          response_content: string
+          description: string | null
+          is_active: boolean
+          priority: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          keyword: string
+          response_type: string
+          response_content: string
+          description?: string | null
+          is_active?: boolean
+          priority?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          keyword?: string
+          response_type?: string
+          response_content?: string
+          description?: string | null
+          is_active?: boolean
+          priority?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bot_settings: {
         Row: {
           id: string

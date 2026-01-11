@@ -39,6 +39,52 @@ async function getBotSettings(supabase: ReturnType<typeof createClient>): Promis
   return settings;
 }
 
+// Get bot keywords from database
+interface BotKeyword {
+  id: string;
+  keyword: string;
+  response_type: string;
+  response_content: string;
+  is_active: boolean;
+  priority: number;
+}
+
+async function getKeywords(supabase: ReturnType<typeof createClient>): Promise<BotKeyword[]> {
+  const { data, error } = await supabase
+    .from('bot_keywords')
+    .select('*')
+    .eq('is_active', true)
+    .order('priority', { ascending: false });
+  
+  if (error) {
+    console.error("Error fetching keywords:", error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+// Match keyword from message
+function matchKeyword(messageText: string, keywords: BotKeyword[]): BotKeyword | null {
+  const text = messageText.trim().toLowerCase();
+  
+  // Try exact match first
+  for (const kw of keywords) {
+    if (kw.keyword.toLowerCase() === text) {
+      return kw;
+    }
+  }
+  
+  // Try partial match (if message contains keyword)
+  for (const kw of keywords) {
+    if (text.includes(kw.keyword.toLowerCase())) {
+      return kw;
+    }
+  }
+  
+  return null;
+}
+
 // Verify LINE signature
 async function verifySignature(body: string, signature: string, channelSecret: string): Promise<boolean> {
   const encoder = new TextEncoder();
@@ -162,8 +208,9 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Get bot settings from database
+    // Get bot settings and keywords from database
     const settings = await getBotSettings(supabase);
+    const keywords = await getKeywords(supabase);
 
     // Process each event
     for (const event of body.events || []) {
@@ -237,74 +284,36 @@ serve(async (req) => {
         const messageText = event.message.text.trim();
         const conversationState = user.conversation_state;
 
-        // Check for "報名" keyword
-        if (messageText === '報名') {
-          // Show registration info with copy button
-          // Mark user as interested (for remarketing) if not already interested
-          const updateData: Record<string, unknown> = { conversation_state: 'registration_started' };
-          if (!user.interested_at) {
-            updateData.interested_at = new Date().toISOString();
-          }
+        // Handle conversation states first (they take priority over keywords)
+        // Handle "複製匯款資訊" - send plain text for easy copying
+        if (messageText === '複製匯款資訊' && (conversationState === 'registration_started' || !conversationState)) {
           await supabase
             .from('line_users')
-            .update(updateData)
+            .update({ conversation_state: 'awaiting_payment' })
             .eq('id', user.id);
 
           await sendLineMessage(replyToken, [
             {
               type: "text",
-              text: `📋 ${settings.event_name}\n\n💰 費用：${settings.price}\n\n🏦 匯款資訊：\n銀行：${settings.bank_name}\n銀行代碼：${settings.bank_code}\n帳號：${settings.account_number}\n戶名：${settings.account_name}`,
+              text: `${settings.bank_name}\n銀行代碼：${settings.bank_code}\n帳號：${settings.account_number}\n戶名：${settings.account_name}\n金額：${settings.price}`,
             },
             {
               type: "template",
-              altText: "報名操作選單",
+              altText: "已完成匯款確認",
               template: {
                 type: "buttons",
-                text: "請點擊下方按鈕複製匯款資訊",
+                text: "完成匯款後請點擊下方按鈕",
                 actions: [
                   {
                     type: "message",
-                    label: "📋 複製匯款資訊",
-                    text: "複製匯款資訊",
+                    label: "✅ 已完成匯款",
+                    text: "已完成匯款",
                   },
                 ],
               },
             },
           ], accessToken);
           continue;
-        }
-
-        // Handle "複製匯款資訊" - send plain text for easy copying
-        if (messageText === '複製匯款資訊' || conversationState === 'registration_started') {
-          if (messageText === '複製匯款資訊') {
-            await supabase
-              .from('line_users')
-              .update({ conversation_state: 'awaiting_payment' })
-              .eq('id', user.id);
-
-            await sendLineMessage(replyToken, [
-              {
-                type: "text",
-                text: `${settings.bank_name}\n銀行代碼：${settings.bank_code}\n帳號：${settings.account_number}\n戶名：${settings.account_name}\n金額：${settings.price}`,
-              },
-              {
-                type: "template",
-                altText: "已完成匯款確認",
-                template: {
-                  type: "buttons",
-                  text: "完成匯款後請點擊下方按鈕",
-                  actions: [
-                    {
-                      type: "message",
-                      label: "✅ 已完成匯款",
-                      text: "已完成匯款",
-                    },
-                  ],
-                },
-              },
-            ], accessToken);
-            continue;
-          }
         }
 
         // Handle "已完成匯款"
@@ -336,7 +345,7 @@ serve(async (req) => {
 
             await sendLineMessage(replyToken, [{
               type: "text",
-              text: `✅ 已收到您的匯款資訊！\n\n帳號後五碼：${messageText.trim()}\n\n我們會盡快確認您的匯款，確認後會發送通知給您。\n\n感謝您的報名！🎉`,
+              text: settings.success_message || `✅ 已收到您的匯款資訊！\n\n帳號後五碼：${messageText.trim()}\n\n我們會盡快確認您的匯款，確認後會發送通知給您。\n\n感謝您的報名！🎉`,
             }], accessToken);
           } else {
             // Invalid format
@@ -346,6 +355,57 @@ serve(async (req) => {
             }], accessToken);
           }
           continue;
+        }
+
+        // Check for keyword match
+        const matchedKeyword = matchKeyword(messageText, keywords);
+        
+        if (matchedKeyword) {
+          // Handle registration type keyword
+          if (matchedKeyword.response_type === 'registration') {
+            // Show registration info with copy button
+            // Mark user as interested (for remarketing) if not already interested
+            const updateData: Record<string, unknown> = { conversation_state: 'registration_started' };
+            if (!user.interested_at) {
+              updateData.interested_at = new Date().toISOString();
+            }
+            await supabase
+              .from('line_users')
+              .update(updateData)
+              .eq('id', user.id);
+
+            await sendLineMessage(replyToken, [
+              {
+                type: "text",
+                text: `📋 ${settings.event_name}\n\n💰 費用：${settings.price}\n\n🏦 匯款資訊：\n銀行：${settings.bank_name}\n銀行代碼：${settings.bank_code}\n帳號：${settings.account_number}\n戶名：${settings.account_name}`,
+              },
+              {
+                type: "template",
+                altText: "報名操作選單",
+                template: {
+                  type: "buttons",
+                  text: "請點擊下方按鈕複製匯款資訊",
+                  actions: [
+                    {
+                      type: "message",
+                      label: "📋 複製匯款資訊",
+                      text: "複製匯款資訊",
+                    },
+                  ],
+                },
+              },
+            ], accessToken);
+            continue;
+          }
+          
+          // Handle text type keyword
+          if (matchedKeyword.response_type === 'text') {
+            await sendLineMessage(replyToken, [{
+              type: "text",
+              text: matchedKeyword.response_content,
+            }], accessToken);
+            continue;
+          }
         }
 
         // Default echo response (學我說話)

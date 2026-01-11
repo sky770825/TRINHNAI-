@@ -10,7 +10,8 @@ import {
   LogOut, Loader2, Users, Search, MessageCircle, 
   RefreshCw, User, Calendar, Tag, Edit2, Save, X, Clock,
   CreditCard, CheckCircle, Send, Megaphone, Filter, Repeat,
-  Download, ClipboardList, ExternalLink, Settings
+  Download, ClipboardList, ExternalLink, Settings, Plus, Trash2,
+  Key, Power, PowerOff, ArrowUp, ArrowDown
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -59,6 +60,18 @@ interface LineUser {
   payment_last_5_digits: string | null;
 }
 
+interface BotKeyword {
+  id: string;
+  keyword: string;
+  response_type: string;
+  response_content: string;
+  description: string | null;
+  is_active: boolean;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+}
+
 const followStatusLabels: Record<string, { label: string; className: string }> = {
   following: { label: "追蹤中", className: "bg-green-100 text-green-800" },
   unfollowed: { label: "已取消追蹤", className: "bg-gray-100 text-gray-800" },
@@ -98,6 +111,19 @@ const CRM = () => {
   const [botSettings, setBotSettings] = useState<Record<string, { value: string; description: string }>>({});
   const [isLoadingSettings, setIsLoadingSettings] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  
+  // Bot keywords state
+  const [keywords, setKeywords] = useState<BotKeyword[]>([]);
+  const [isLoadingKeywords, setIsLoadingKeywords] = useState(false);
+  const [isKeywordDialogOpen, setIsKeywordDialogOpen] = useState(false);
+  const [editingKeyword, setEditingKeyword] = useState<BotKeyword | null>(null);
+  const [keywordForm, setKeywordForm] = useState({
+    keyword: '',
+    response_type: 'text',
+    response_content: '',
+    description: '',
+    priority: 5,
+  });
 
   const filteredUsers = lineUsers.filter((user) => {
     const query = searchQuery.toLowerCase();
@@ -125,6 +151,7 @@ const CRM = () => {
   useEffect(() => {
     fetchData();
     fetchBotSettings();
+    fetchKeywords();
   }, []);
 
   const fetchBotSettings = async () => {
@@ -178,6 +205,148 @@ const CRM = () => {
       toast.error("儲存設定失敗");
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  const fetchKeywords = async () => {
+    setIsLoadingKeywords(true);
+    try {
+      const { data, error } = await supabase
+        .from('bot_keywords')
+        .select('*')
+        .order('priority', { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching keywords:", error);
+        return;
+      }
+      
+      setKeywords(data || []);
+    } catch (err) {
+      console.error("Error fetching keywords:", err);
+    } finally {
+      setIsLoadingKeywords(false);
+    }
+  };
+
+  const openKeywordDialog = (keyword?: BotKeyword) => {
+    if (keyword) {
+      setEditingKeyword(keyword);
+      setKeywordForm({
+        keyword: keyword.keyword,
+        response_type: keyword.response_type,
+        response_content: keyword.response_content,
+        description: keyword.description || '',
+        priority: keyword.priority,
+      });
+    } else {
+      setEditingKeyword(null);
+      setKeywordForm({
+        keyword: '',
+        response_type: 'text',
+        response_content: '',
+        description: '',
+        priority: 5,
+      });
+    }
+    setIsKeywordDialogOpen(true);
+  };
+
+  const saveKeyword = async () => {
+    if (!keywordForm.keyword.trim() || !keywordForm.response_content.trim()) {
+      toast.error("請填寫關鍵字和回覆內容");
+      return;
+    }
+
+    try {
+      if (editingKeyword) {
+        // Update existing
+        const { error } = await supabase
+          .from('bot_keywords')
+          .update({
+            keyword: keywordForm.keyword.trim(),
+            response_type: keywordForm.response_type,
+            response_content: keywordForm.response_content,
+            description: keywordForm.description || null,
+            priority: keywordForm.priority,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingKeyword.id);
+        
+        if (error) throw error;
+        toast.success("關鍵字已更新");
+      } else {
+        // Create new
+        const { error } = await supabase
+          .from('bot_keywords')
+          .insert({
+            keyword: keywordForm.keyword.trim(),
+            response_type: keywordForm.response_type,
+            response_content: keywordForm.response_content,
+            description: keywordForm.description || null,
+            priority: keywordForm.priority,
+          });
+        
+        if (error) throw error;
+        toast.success("關鍵字已新增");
+      }
+      
+      setIsKeywordDialogOpen(false);
+      fetchKeywords();
+    } catch (err: any) {
+      console.error("Error saving keyword:", err);
+      if (err.code === '23505') {
+        toast.error("此關鍵字已存在");
+      } else {
+        toast.error("儲存失敗");
+      }
+    }
+  };
+
+  const toggleKeywordActive = async (id: string, isActive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('bot_keywords')
+        .update({ is_active: !isActive })
+        .eq('id', id);
+      
+      if (error) throw error;
+      toast.success(isActive ? "關鍵字已停用" : "關鍵字已啟用");
+      fetchKeywords();
+    } catch (err) {
+      toast.error("更新失敗");
+    }
+  };
+
+  const deleteKeyword = async (id: string) => {
+    if (!confirm("確定要刪除此關鍵字嗎？")) return;
+    
+    try {
+      const { error } = await supabase
+        .from('bot_keywords')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      toast.success("關鍵字已刪除");
+      fetchKeywords();
+    } catch (err) {
+      toast.error("刪除失敗");
+    }
+  };
+
+  const adjustPriority = async (id: string, currentPriority: number, direction: 'up' | 'down') => {
+    const newPriority = direction === 'up' ? currentPriority + 1 : currentPriority - 1;
+    try {
+      const { error } = await supabase
+        .from('bot_keywords')
+        .update({ priority: newPriority })
+        .eq('id', id);
+      
+      if (error) throw error;
+      fetchKeywords();
+    } catch (err) {
+      toast.error("調整優先級失敗");
     }
   };
 
@@ -504,6 +673,10 @@ const CRM = () => {
               <Repeat className="w-4 h-4" />
               再行銷設定
             </TabsTrigger>
+            <TabsTrigger value="keywords" className="flex items-center gap-2">
+              <Key className="w-4 h-4" />
+              關鍵字管理
+            </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
               機器人設定
@@ -713,6 +886,146 @@ const CRM = () => {
               className="bg-card rounded-2xl shadow-card border border-border/50 p-6"
             >
               <RemarketingManager />
+            </motion.div>
+          </TabsContent>
+
+          {/* Keywords Tab */}
+          <TabsContent value="keywords">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden"
+            >
+              <div className="p-6 border-b border-border/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                      <Key className="w-5 h-5 text-primary" />
+                      關鍵字管理
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      設定 LINE 機器人的關鍵字自動回覆
+                    </p>
+                  </div>
+                  <Button onClick={() => openKeywordDialog()}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    新增關鍵字
+                  </Button>
+                </div>
+              </div>
+
+              {isLoadingKeywords ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground">載入關鍵字中...</span>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>狀態</TableHead>
+                        <TableHead>關鍵字</TableHead>
+                        <TableHead>類型</TableHead>
+                        <TableHead>回覆內容</TableHead>
+                        <TableHead>說明</TableHead>
+                        <TableHead>優先級</TableHead>
+                        <TableHead>操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {keywords.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                            尚未設定任何關鍵字
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        keywords.map((kw) => (
+                          <TableRow key={kw.id}>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleKeywordActive(kw.id, kw.is_active)}
+                                className={kw.is_active ? "text-green-600" : "text-gray-400"}
+                              >
+                                {kw.is_active ? (
+                                  <Power className="w-4 h-4" />
+                                ) : (
+                                  <PowerOff className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium">{kw.keyword}</span>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={kw.response_type === 'registration' ? 'default' : 'secondary'}>
+                                {kw.response_type === 'registration' ? '報名流程' : '文字回覆'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <p className="text-sm text-muted-foreground truncate max-w-[300px]">
+                                {kw.response_type === 'registration' 
+                                  ? '啟動報名流程' 
+                                  : kw.response_content}
+                              </p>
+                            </TableCell>
+                            <TableCell>
+                              <p className="text-sm text-muted-foreground truncate max-w-[150px]">
+                                {kw.description || '-'}
+                              </p>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono text-sm">{kw.priority}</span>
+                                <div className="flex flex-col gap-0.5 ml-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-4 w-4 p-0"
+                                    onClick={() => adjustPriority(kw.id, kw.priority, 'up')}
+                                  >
+                                    <ArrowUp className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-4 w-4 p-0"
+                                    onClick={() => adjustPriority(kw.id, kw.priority, 'down')}
+                                  >
+                                    <ArrowDown className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openKeywordDialog(kw)}
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteKeyword(kw.id)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </motion.div>
           </TabsContent>
 
@@ -998,6 +1311,111 @@ const CRM = () => {
                   發送推播
                 </>
               )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Keyword Dialog */}
+      <Dialog open={isKeywordDialogOpen} onOpenChange={setIsKeywordDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5 text-primary" />
+              {editingKeyword ? '編輯關鍵字' : '新增關鍵字'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">關鍵字 *</label>
+                <Input
+                  placeholder="例如：價格、課程、時間"
+                  value={keywordForm.keyword}
+                  onChange={(e) => setKeywordForm({ ...keywordForm, keyword: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  用戶輸入此關鍵字時會觸發回覆
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">回覆類型 *</label>
+                <Select 
+                  value={keywordForm.response_type} 
+                  onValueChange={(value) => setKeywordForm({ ...keywordForm, response_type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="text">文字回覆</SelectItem>
+                    <SelectItem value="registration">啟動報名流程</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {keywordForm.response_type === 'text' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">回覆內容 *</label>
+                <Textarea
+                  placeholder="輸入機器人的回覆內容..."
+                  value={keywordForm.response_content}
+                  onChange={(e) => setKeywordForm({ ...keywordForm, response_content: e.target.value })}
+                  rows={6}
+                />
+                <p className="text-xs text-muted-foreground">
+                  支援換行，可以使用 Emoji 表情符號
+                </p>
+              </div>
+            )}
+
+            {keywordForm.response_type === 'registration' && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  ℹ️ 此關鍵字會啟動報名流程，顯示匯款資訊並引導用戶完成報名
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">說明</label>
+                <Input
+                  placeholder="這個關鍵字的用途說明"
+                  value={keywordForm.description}
+                  onChange={(e) => setKeywordForm({ ...keywordForm, description: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">優先級</label>
+                <Input
+                  type="number"
+                  placeholder="0-10"
+                  value={keywordForm.priority}
+                  onChange={(e) => setKeywordForm({ ...keywordForm, priority: parseInt(e.target.value) || 0 })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  數字越大優先級越高
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsKeywordDialogOpen(false)}
+            >
+              <X className="w-4 h-4 mr-2" />
+              取消
+            </Button>
+            <Button onClick={saveKeyword}>
+              <Save className="w-4 h-4 mr-2" />
+              儲存
             </Button>
           </div>
         </DialogContent>
