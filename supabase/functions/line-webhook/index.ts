@@ -898,9 +898,75 @@ serve(async (req) => {
                   .update({ conversation_state: JSON.stringify(state) })
                   .eq('id', user.id);
                 
+                // Generate date buttons for next 7 days
+                const dates = [];
+                const today = new Date();
+                const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+                
+                for (let i = 0; i < 7; i++) {
+                  const date = new Date(today);
+                  date.setDate(today.getDate() + i);
+                  const dateStr = date.toISOString().split('T')[0];
+                  const dayOfWeek = weekDays[date.getDay()];
+                  const label = i === 0 ? `今天 (${dayOfWeek})` : i === 1 ? `明天 (${dayOfWeek})` : `${date.getMonth() + 1}/${date.getDate()} (${dayOfWeek})`;
+                  
+                  // Check if this day is available for the store
+                  if (selectedStore.available_days.includes(date.getDay().toString())) {
+                    dates.push({
+                      label,
+                      dateStr
+                    });
+                  }
+                }
+                
+                const dateButtons = dates.map(d => ({
+                  type: "button",
+                  style: "primary",
+                  action: {
+                    type: "message",
+                    label: d.label,
+                    text: d.dateStr
+                  },
+                  color: "#D4AF37"
+                }));
+                
                 await sendLineMessage(replyToken, [{
-                  type: "text",
-                  text: "📅 請輸入預約日期\n\n格式：YYYY-MM-DD\n例如：2026-01-15"
+                  type: "flex",
+                  altText: "選擇預約日期",
+                  contents: {
+                    type: "bubble",
+                    body: {
+                      type: "box",
+                      layout: "vertical",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "📅 請選擇預約日期",
+                          weight: "bold",
+                          size: "xl",
+                          color: "#D4AF37"
+                        },
+                        {
+                          type: "text",
+                          text: `🏪 ${state.store_name}`,
+                          size: "sm",
+                          color: "#666666",
+                          margin: "md"
+                        },
+                        {
+                          type: "separator",
+                          margin: "lg"
+                        },
+                        {
+                          type: "box",
+                          layout: "vertical",
+                          margin: "lg",
+                          spacing: "sm",
+                          contents: dateButtons
+                        }
+                      ]
+                    }
+                  }
                 }], accessToken);
                 continue;
               }
