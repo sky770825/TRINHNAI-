@@ -1151,14 +1151,28 @@ const CRM = () => {
           .update(dataToSave)
           .eq('id', editingAnnouncement.id);
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error updating announcement:", error);
+          toast.error(`更新失敗：${error.message || '未知錯誤'}`);
+          return;
+        }
         toast.success("公告已更新");
       } else {
         const { error } = await supabase
           .from('announcements')
           .insert(dataToSave);
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error inserting announcement:", error);
+          if (error.code === '42501') {
+            toast.error("權限不足，請確認您有管理員權限");
+          } else if (error.code === '42P01') {
+            toast.error("公告表不存在，請先執行 migration");
+          } else {
+            toast.error(`新增失敗：${error.message || '未知錯誤'}`);
+          }
+          return;
+        }
         toast.success("公告已新增");
       }
       
@@ -1166,7 +1180,7 @@ const CRM = () => {
       fetchAnnouncements();
     } catch (err: any) {
       console.error("Error saving announcement:", err);
-      toast.error("儲存失敗");
+      toast.error(`儲存失敗：${err.message || '未知錯誤'}`);
     }
   };
 
