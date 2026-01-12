@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { LogOut, Loader2, Users, Calendar, Mail, Heart, Phone, MessageCircle, Globe, CalendarDays, Store, Clock, Filter, X, ExternalLink, RefreshCw, Trash2, Bell, Image, Power, PowerOff, Plus, Edit2, Save, Upload, GripVertical, Trash } from "lucide-react";
+import { LogOut, Loader2, Users, Calendar, Mail, Heart, Phone, MessageCircle, Globe, CalendarDays, Store, Clock, Filter, X, ExternalLink, RefreshCw, Trash2, Bell, Image, Power, PowerOff, Plus, Edit2, Save, Upload, GripVertical, Trash, CheckCircle, AlertCircle } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import {
   Dialog,
@@ -60,6 +60,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { testAllConnections, formatTestResults, type ConnectionTestResult } from "@/utils/connectionTest";
 
 interface Lead {
   id: string;
@@ -228,6 +229,11 @@ const Admin = () => {
   });
   const [announcementImagePreview, setAnnouncementImagePreview] = useState<string>('');
   const [selectedAnnouncementImageFile, setSelectedAnnouncementImageFile] = useState<File | null>(null);
+  
+  // 連接測試狀態
+  const [isTestingConnections, setIsTestingConnections] = useState(false);
+  const [connectionTestResults, setConnectionTestResults] = useState<ConnectionTestResult[]>([]);
+  const [showConnectionTest, setShowConnectionTest] = useState(false);
 
   // Filtered bookings
   const filteredBookings = useMemo(() => {
@@ -892,7 +898,30 @@ const Admin = () => {
     }
   };
 
-  const openAnnouncementDialog = (announcement?: Announcement) => {
+  // 檢測 Storage bucket 是否存在
+  const checkStorageBucket = async (): Promise<boolean> => {
+    try {
+      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      
+      if (listError) {
+        console.error("檢查 bucket 列表失敗:", listError);
+        return false;
+      }
+      
+      const bucketExists = buckets?.some(b => b.name === 'announcement-images') || false;
+      console.log("Bucket 檢測結果:", {
+        exists: bucketExists,
+        allBuckets: buckets?.map(b => ({ name: b.name, public: b.public }))
+      });
+      
+      return bucketExists;
+    } catch (err) {
+      console.error("檢測 bucket 時發生錯誤:", err);
+      return false;
+    }
+  };
+
+  const openAnnouncementDialog = async (announcement?: Announcement) => {
     if (announcement) {
       setEditingAnnouncement(announcement);
       setAnnouncementForm({
@@ -920,6 +949,14 @@ const Admin = () => {
       setAnnouncementImagePreview('');
       setSelectedAnnouncementImageFile(null);
     }
+    
+    // 打開對話框時檢測 bucket
+    const bucketExists = await checkStorageBucket();
+    if (!bucketExists) {
+      console.warn("Storage bucket 'announcement-images' 不存在");
+      // 不阻止打開對話框，但在上傳時會處理
+    }
+    
     setIsAnnouncementDialogOpen(true);
   };
 
@@ -966,16 +1003,37 @@ const Admin = () => {
           fileType: selectedAnnouncementImageFile.type
         });
 
-        // 先檢查 bucket 是否存在
-        const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-        if (listError) {
-          console.error("檢查 bucket 列表失敗:", listError);
-        } else {
-          const bucketExists = buckets?.some(b => b.name === 'announcement-images');
-          console.log("Bucket 存在狀態:", bucketExists, "所有 buckets:", buckets?.map(b => b.name));
+        // 檢測 bucket 是否存在
+        const bucketExists = await checkStorageBucket();
+        
+        if (!bucketExists) {
+          console.log("Bucket 不存在，嘗試自動創建...");
           
-          if (!bucketExists) {
-            toast.error("Storage bucket 'announcement-images' 不存在，請先在 Supabase Dashboard 創建");
+          // 嘗試通過 Edge Function 自動創建 bucket
+          try {
+            const { data: createResult, error: createError } = await supabase.functions.invoke('create-storage-bucket', {
+              body: { bucketName: 'announcement-images' }
+            });
+
+            if (createError || createResult?.error) {
+              console.error("自動創建 bucket 失敗:", createError || createResult?.error);
+              toast.error(
+                "Storage bucket 不存在且自動創建失敗。請在 Supabase Dashboard → Storage 創建 'announcement-images' bucket（公開），或執行 CREATE_ANNOUNCEMENT_STORAGE_BUCKET.sql",
+                { duration: 10000 }
+              );
+              return;
+            }
+
+            console.log("Bucket 自動創建成功:", createResult);
+            toast.success("已自動創建 Storage bucket，正在上傳圖片...");
+            // 等待一下讓 bucket 創建完成
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (err) {
+            console.error("創建 bucket 時發生錯誤:", err);
+            toast.error(
+              "無法自動創建 bucket。請在 Supabase Dashboard → Storage 創建 'announcement-images' bucket（公開），或執行 CREATE_ANNOUNCEMENT_STORAGE_BUCKET.sql",
+              { duration: 10000 }
+            );
             return;
           }
         }
@@ -993,9 +1051,36 @@ const Admin = () => {
             error: uploadError,
             message: uploadError.message,
             statusCode: uploadError.statusCode,
-            errorCode: uploadError.error
+            errorCode: uploadError.error,
+            name: uploadError.name
           });
-          toast.error(`圖片上傳失敗：${uploadError.message || uploadError.error || '未知錯誤'} (錯誤碼: ${uploadError.statusCode || 'N/A'})`);
+          
+          // 詳細的錯誤處理
+          let errorMessage = `圖片上傳失敗：${uploadError.message || uploadError.error || '未知錯誤'}`;
+          let errorHint = '';
+          
+          if (uploadError.message?.includes('not found') || uploadError.message?.includes('does not exist') || uploadError.statusCode === 404) {
+            errorMessage = "Storage bucket 'announcement-images' 不存在";
+            errorHint = "請在 Supabase Dashboard → Storage → New bucket 創建，或執行 CREATE_ANNOUNCEMENT_STORAGE_BUCKET.sql";
+          } else if (uploadError.message?.includes('new row violates row-level security policy') || uploadError.statusCode === 42501) {
+            errorMessage = "權限不足：RLS 策略阻止上傳";
+            errorHint = "請檢查 storage.objects 表的 RLS 策略，確保認證用戶可以上傳到 announcement-images bucket。執行 CHECK_STORAGE_SETUP.sql 檢查。";
+          } else if (uploadError.message?.includes('JWT') || uploadError.message?.includes('token')) {
+            errorMessage = "認證失敗：請重新登入";
+            errorHint = "您的登入狀態可能已過期，請重新登入後再試";
+          } else if (uploadError.statusCode === 413 || uploadError.message?.includes('too large')) {
+            errorMessage = "文件太大：超過 5MB 限制";
+            errorHint = "請選擇較小的圖片文件";
+          }
+          
+          toast.error(
+            errorHint ? `${errorMessage}\n${errorHint}` : errorMessage,
+            { duration: 10000 }
+          );
+          
+          // 在控制台輸出完整錯誤信息以便調試
+          console.error("完整上傳錯誤信息:", JSON.stringify(uploadError, null, 2));
+          
           return;
         }
 
@@ -1146,6 +1231,40 @@ const Admin = () => {
             </h1>
           </div>
           <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={async () => {
+                setIsTestingConnections(true);
+                setShowConnectionTest(true);
+                const results = await testAllConnections();
+                setConnectionTestResults(results);
+                setIsTestingConnections(false);
+                
+                const successCount = results.filter(r => r.status === 'success').length;
+                const errorCount = results.filter(r => r.status === 'error').length;
+                const warningCount = results.filter(r => r.status === 'warning').length;
+                
+                if (errorCount === 0 && warningCount === 0) {
+                  toast.success(`所有連接測試通過！(${successCount} 項)`);
+                } else {
+                  toast.warning(`測試完成：${successCount} 成功，${warningCount} 警告，${errorCount} 錯誤`);
+                }
+              }}
+              disabled={isTestingConnections}
+            >
+              {isTestingConnections ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  測試中...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  檢查連接
+                </>
+              )}
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link to="/crm">
                 <MessageCircle className="w-4 h-4" />
@@ -2364,6 +2483,93 @@ const Admin = () => {
             <Button onClick={saveAnnouncement}>
               <Save className="w-4 h-4 mr-2" />
               儲存
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Connection Test Dialog */}
+      <Dialog open={showConnectionTest} onOpenChange={setShowConnectionTest}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-primary" />
+              系統連接測試結果
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4 overflow-y-auto max-h-[60vh]">
+            {isTestingConnections ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                <span className="ml-2 text-muted-foreground">正在測試連接...</span>
+              </div>
+            ) : connectionTestResults.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                點擊「檢查連接」按鈕開始測試
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {connectionTestResults.map((result, index) => (
+                  <div
+                    key={index}
+                    className={`p-4 rounded-lg border ${
+                      result.status === 'success'
+                        ? 'bg-green-50 border-green-200'
+                        : result.status === 'warning'
+                        ? 'bg-yellow-50 border-yellow-200'
+                        : 'bg-red-50 border-red-200'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      {result.status === 'success' ? (
+                        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      ) : result.status === 'warning' ? (
+                        <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1">
+                        <div className="font-medium text-sm mb-1">{result.service}</div>
+                        <div className={`text-sm ${
+                          result.status === 'success'
+                            ? 'text-green-700'
+                            : result.status === 'warning'
+                            ? 'text-yellow-700'
+                            : 'text-red-700'
+                        }`}>
+                          {result.message}
+                        </div>
+                        {result.details && (
+                          <details className="mt-2">
+                            <summary className="text-xs text-muted-foreground cursor-pointer">
+                              查看詳情
+                            </summary>
+                            <pre className="mt-2 text-xs bg-background p-2 rounded overflow-auto max-h-32">
+                              {JSON.stringify(result.details, null, 2)}
+                            </pre>
+                          </details>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-between items-center pt-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              {connectionTestResults.length > 0 && (
+                <>
+                  成功: {connectionTestResults.filter(r => r.status === 'success').length} | 
+                  警告: {connectionTestResults.filter(r => r.status === 'warning').length} | 
+                  錯誤: {connectionTestResults.filter(r => r.status === 'error').length}
+                </>
+              )}
+            </div>
+            <Button variant="outline" onClick={() => setShowConnectionTest(false)}>
+              關閉
             </Button>
           </div>
         </DialogContent>

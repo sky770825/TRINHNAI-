@@ -20,7 +20,15 @@
 
 ### 方法 2：通過 SQL（如果 Dashboard 無法使用）
 
-在 Supabase Dashboard 的 **SQL Editor** 中執行：
+**重要：請使用 `CREATE_ANNOUNCEMENT_STORAGE_BUCKET.sql` 文件，不要執行 Markdown 文件！**
+
+在 Supabase Dashboard 的 **SQL Editor** 中：
+
+1. 打開項目中的 `CREATE_ANNOUNCEMENT_STORAGE_BUCKET.sql` 文件
+2. 複製所有 SQL 代碼
+3. 在 SQL Editor 中粘貼並執行
+
+或者直接複製以下 SQL：
 
 ```sql
 -- 創建 announcement-images bucket
@@ -35,24 +43,24 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- 設置 bucket 的 RLS 策略（允許所有人讀取）
-CREATE POLICY "Public Access"
+CREATE POLICY IF NOT EXISTS "Public Access"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'announcement-images');
 
 -- 允許認證用戶上傳
-CREATE POLICY "Authenticated users can upload"
+CREATE POLICY IF NOT EXISTS "Authenticated users can upload"
 ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (bucket_id = 'announcement-images');
 
 -- 允許認證用戶更新
-CREATE POLICY "Authenticated users can update"
+CREATE POLICY IF NOT EXISTS "Authenticated users can update"
 ON storage.objects FOR UPDATE
 TO authenticated
 USING (bucket_id = 'announcement-images');
 
 -- 允許認證用戶刪除
-CREATE POLICY "Authenticated users can delete"
+CREATE POLICY IF NOT EXISTS "Authenticated users can delete"
 ON storage.objects FOR DELETE
 TO authenticated
 USING (bucket_id = 'announcement-images');
