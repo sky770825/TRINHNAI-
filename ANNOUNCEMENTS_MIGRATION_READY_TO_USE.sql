@@ -57,7 +57,7 @@ CREATE POLICY "Admins can insert announcements"
 ON public.announcements
 FOR INSERT
 TO authenticated
-WITH CHECK (public.has_role(auth.uid(), CAST('admin' AS public.app_role)));
+WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
 CREATE POLICY "Admins can update announcements"
 ON public.announcements
