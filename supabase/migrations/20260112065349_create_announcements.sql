@@ -1,8 +1,35 @@
 -- Create announcements table for site announcements
--- Note: This migration assumes app_role enum type already exists from previous migration
--- If you get "type app_role does not exist" error, please ensure migration 20260111084637_468a4e20-cd71-4067-bb4d-01c8ca979330.sql has been executed first
+-- This migration includes dependency checks to ensure app_role type and has_role function exist
 
-CREATE TABLE public.announcements (
+-- Ensure app_role enum type exists
+DO $$ BEGIN
+    CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- Ensure has_role function exists (if app_role was just created or doesn't exist)
+DO $$ BEGIN
+    CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE
+    SECURITY DEFINER
+    SET search_path = public
+    AS $$
+      SELECT EXISTS (
+        SELECT 1
+        FROM public.user_roles
+        WHERE user_id = _user_id
+          AND role = _role
+      )
+    $$;
+EXCEPTION
+    WHEN OTHERS THEN null;
+END $$;
+
+-- Create announcements table
+CREATE TABLE IF NOT EXISTS public.announcements (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
   content text NOT NULL,
@@ -16,6 +43,13 @@ CREATE TABLE public.announcements (
 
 -- Enable RLS
 ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist (for idempotency)
+DROP POLICY IF EXISTS "Anyone can view active announcements" ON public.announcements;
+DROP POLICY IF EXISTS "Admins can view all announcements" ON public.announcements;
+DROP POLICY IF EXISTS "Admins can insert announcements" ON public.announcements;
+DROP POLICY IF EXISTS "Admins can update announcements" ON public.announcements;
+DROP POLICY IF EXISTS "Admins can delete announcements" ON public.announcements;
 
 -- Allow everyone to view active announcements
 CREATE POLICY "Anyone can view active announcements"
@@ -49,10 +83,14 @@ FOR DELETE
 TO authenticated
 USING (public.has_role(auth.uid(), CAST('admin' AS public.app_role)));
 
--- Create index for faster lookups
-CREATE INDEX idx_announcements_is_active ON public.announcements(is_active);
-CREATE INDEX idx_announcements_priority ON public.announcements(priority DESC);
-CREATE INDEX idx_announcements_dates ON public.announcements(start_date, end_date);
+-- Create indexes (with IF NOT EXISTS equivalent using DO block)
+DO $$ BEGIN
+    CREATE INDEX IF NOT EXISTS idx_announcements_is_active ON public.announcements(is_active);
+    CREATE INDEX IF NOT EXISTS idx_announcements_priority ON public.announcements(priority DESC);
+    CREATE INDEX IF NOT EXISTS idx_announcements_dates ON public.announcements(start_date, end_date);
+EXCEPTION
+    WHEN OTHERS THEN null;
+END $$;
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION public.update_announcements_updated_at()
@@ -63,7 +101,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SET search_path = public;
 
--- Create trigger for automatic timestamp updates
+-- Drop trigger if exists, then create
+DROP TRIGGER IF EXISTS update_announcements_updated_at ON public.announcements;
 CREATE TRIGGER update_announcements_updated_at
 BEFORE UPDATE ON public.announcements
 FOR EACH ROW
