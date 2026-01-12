@@ -19,6 +19,7 @@ export type Database = {
           id: string
           title: string
           content: string
+          image_url: string | null
           is_active: boolean
           priority: number
           start_date: string | null
@@ -30,6 +31,7 @@ export type Database = {
           id?: string
           title: string
           content: string
+          image_url?: string | null
           is_active?: boolean
           priority?: number
           start_date?: string | null
@@ -41,6 +43,7 @@ export type Database = {
           id?: string
           title?: string
           content?: string
+          image_url?: string | null
           is_active?: boolean
           priority?: number
           start_date?: string | null

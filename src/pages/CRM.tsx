@@ -12,7 +12,7 @@ import {
   CreditCard, CheckCircle, Send, Megaphone, Filter, Repeat,
   Download, ClipboardList, ExternalLink, Settings, Plus, Trash2,
   Key, Power, PowerOff, ArrowUp, ArrowDown, Store, Image, Upload,
-  Ban, CalendarX, CalendarDays, List, ChevronDown, ChevronUp, GripVertical, Bell
+  Ban, CalendarX, CalendarDays, List, ChevronDown, ChevronUp, GripVertical, Bell, Trash
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -122,6 +122,7 @@ interface Announcement {
   id: string;
   title: string;
   content: string;
+  image_url: string | null;
   is_active: boolean;
   priority: number;
   start_date: string | null;
@@ -248,11 +249,14 @@ const CRM = () => {
   const [announcementForm, setAnnouncementForm] = useState({
     title: '',
     content: '',
+    image_url: '',
     is_active: true,
     priority: 0,
     start_date: '',
     end_date: '',
   });
+  const [announcementImagePreview, setAnnouncementImagePreview] = useState<string>('');
+  const [selectedAnnouncementImageFile, setSelectedAnnouncementImageFile] = useState<File | null>(null);
 
   // 使用 useMemo 優化過濾用戶列表
   const filteredUsers = useMemo(() => {
@@ -1110,23 +1114,52 @@ const CRM = () => {
       setAnnouncementForm({
         title: announcement.title,
         content: announcement.content,
+        image_url: announcement.image_url || '',
         is_active: announcement.is_active,
         priority: announcement.priority,
         start_date: announcement.start_date ? announcement.start_date.split('T')[0] : '',
         end_date: announcement.end_date ? announcement.end_date.split('T')[0] : '',
       });
+      setAnnouncementImagePreview(announcement.image_url || '');
+      setSelectedAnnouncementImageFile(null);
     } else {
       setEditingAnnouncement(null);
       setAnnouncementForm({
         title: '',
         content: '',
+        image_url: '',
         is_active: true,
         priority: 0,
         start_date: '',
         end_date: '',
       });
+      setAnnouncementImagePreview('');
+      setSelectedAnnouncementImageFile(null);
     }
     setIsAnnouncementDialogOpen(true);
+  };
+
+  const handleAnnouncementImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast.error("圖片大小不能超過 5MB");
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast.error("請選擇圖片檔案");
+        return;
+      }
+      setSelectedAnnouncementImageFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAnnouncementImagePreview(reader.result as string);
+        setAnnouncementForm({ ...announcementForm, image_url: '' }); // Clear URL when file selected
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const saveAnnouncement = async () => {
@@ -1136,9 +1169,50 @@ const CRM = () => {
     }
 
     try {
+      let finalImageUrl = announcementForm.image_url;
+
+      // If user selected a new image file, upload it
+      if (selectedAnnouncementImageFile) {
+        const fileExt = selectedAnnouncementImageFile.name.split('.').pop();
+        const fileName = `announcement-${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        // Upload new image
+        const { error: uploadError } = await supabase.storage
+          .from('announcement-images')
+          .upload(filePath, selectedAnnouncementImageFile, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          toast.error("圖片上傳失敗");
+          return;
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('announcement-images')
+          .getPublicUrl(filePath);
+
+        finalImageUrl = publicUrl;
+
+        // Delete old image if updating
+        if (editingAnnouncement && editingAnnouncement.image_url && editingAnnouncement.image_url.includes('announcement-images')) {
+          const oldPath = editingAnnouncement.image_url.split('/announcement-images/').pop();
+          if (oldPath) {
+            await supabase.storage
+              .from('announcement-images')
+              .remove([oldPath]);
+          }
+        }
+      }
+
       const dataToSave: any = {
         title: announcementForm.title,
         content: announcementForm.content,
+        image_url: finalImageUrl || null,
         is_active: announcementForm.is_active,
         priority: announcementForm.priority,
         start_date: announcementForm.start_date ? `${announcementForm.start_date}T00:00:00Z` : null,
@@ -3271,6 +3345,53 @@ const CRM = () => {
               />
             </div>
 
+            <div className="space-y-2">
+              <label className="text-sm font-medium">圖片（選填）</label>
+              <div className="flex flex-col gap-3">
+                {announcementImagePreview && (
+                  <div className="relative w-full max-w-md mx-auto">
+                    <img
+                      src={announcementImagePreview}
+                      alt="預覽"
+                      className="w-full h-auto rounded-lg border border-border object-cover max-h-64"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={() => {
+                        setAnnouncementImagePreview('');
+                        setSelectedAnnouncementImageFile(null);
+                        setAnnouncementForm({ ...announcementForm, image_url: '' });
+                      }}
+                    >
+                      <Trash className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAnnouncementImageSelect}
+                    className="hidden"
+                    id="announcement-image-upload"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('announcement-image-upload')?.click()}
+                    className="flex items-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    上傳圖片
+                  </Button>
+                  <p className="text-xs text-muted-foreground">建議尺寸：16:9，最大 5MB</p>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">優先級</label>
@@ -3285,17 +3406,19 @@ const CRM = () => {
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">狀態</label>
-                <div className="flex items-center gap-2 pt-2">
-                  <label className="text-sm">啟用</label>
-                  <input
-                    type="checkbox"
-                    checked={announcementForm.is_active}
-                    onChange={(e) => setAnnouncementForm({ ...announcementForm, is_active: e.target.checked })}
-                    className="w-4 h-4"
-                  />
-                </div>
+              <div className="space-y-2 flex items-center pt-6">
+                <Checkbox
+                  id="announcement-active"
+                  checked={announcementForm.is_active}
+                  onCheckedChange={(checked) => setAnnouncementForm({ ...announcementForm, is_active: Boolean(checked) })}
+                  className="w-4 h-4"
+                />
+                <label
+                  htmlFor="announcement-active"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ml-2"
+                >
+                  啟用公告
+                </label>
               </div>
             </div>
 
