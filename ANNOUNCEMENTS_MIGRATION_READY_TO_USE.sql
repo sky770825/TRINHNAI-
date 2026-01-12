@@ -50,7 +50,7 @@ CREATE POLICY "Admins can view all announcements"
 ON public.announcements
 FOR SELECT
 TO authenticated
-USING (public.has_role(auth.uid(), CAST('admin' AS public.app_role)));
+USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 -- Allow authenticated admin users to manage announcements
 CREATE POLICY "Admins can insert announcements"
@@ -63,13 +63,13 @@ CREATE POLICY "Admins can update announcements"
 ON public.announcements
 FOR UPDATE
 TO authenticated
-USING (public.has_role(auth.uid(), CAST('admin' AS public.app_role)));
+USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 CREATE POLICY "Admins can delete announcements"
 ON public.announcements
 FOR DELETE
 TO authenticated
-USING (public.has_role(auth.uid(), CAST('admin' AS public.app_role)));
+USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 -- Create indexes (with IF NOT EXISTS equivalent using DO block)
 DO $$ BEGIN
