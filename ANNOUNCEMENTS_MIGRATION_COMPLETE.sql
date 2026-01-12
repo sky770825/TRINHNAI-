@@ -11,6 +11,7 @@ EXCEPTION
 END $$;
 
 -- Ensure has_role function exists (完整版本，不依賴其他 migration)
+-- Note: 如果 user_roles.role 是 text 類型，需要轉換
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
 RETURNS boolean
 LANGUAGE sql
@@ -22,7 +23,7 @@ AS $$
     SELECT 1
     FROM public.user_roles
     WHERE user_id = _user_id
-      AND role = _role
+      AND role::text = _role::text
   )
 $$;
 
