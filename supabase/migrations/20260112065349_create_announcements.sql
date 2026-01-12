@@ -1,4 +1,7 @@
 -- Create announcements table for site announcements
+-- Note: This migration assumes app_role enum type already exists from previous migration
+-- If you get "type app_role does not exist" error, please ensure migration 20260111084637_468a4e20-cd71-4067-bb4d-01c8ca979330.sql has been executed first
+
 CREATE TABLE public.announcements (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
