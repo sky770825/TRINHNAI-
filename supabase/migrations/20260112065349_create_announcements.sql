@@ -25,26 +25,26 @@ CREATE POLICY "Admins can view all announcements"
 ON public.announcements
 FOR SELECT
 TO authenticated
-USING (public.has_role(auth.uid(), 'admin'::app_role));
+USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 -- Allow authenticated admin users to manage announcements
 CREATE POLICY "Admins can insert announcements"
 ON public.announcements
 FOR INSERT
 TO authenticated
-WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
+WITH CHECK (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 CREATE POLICY "Admins can update announcements"
 ON public.announcements
 FOR UPDATE
 TO authenticated
-USING (public.has_role(auth.uid(), 'admin'::app_role));
+USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 CREATE POLICY "Admins can delete announcements"
 ON public.announcements
 FOR DELETE
 TO authenticated
-USING (public.has_role(auth.uid(), 'admin'::app_role));
+USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 -- Create index for faster lookups
 CREATE INDEX idx_announcements_is_active ON public.announcements(is_active);
