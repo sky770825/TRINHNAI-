@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,6 +27,18 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { bookingSchema, type BookingFormData } from "@/lib/validations";
 import { supabase } from "@/integrations/supabase/client";
 
+interface ServiceSetting {
+  service_id: string;
+  name: string;
+  is_active: boolean;
+}
+
+interface StoreSetting {
+  store_id: string;
+  name: string;
+  is_active: boolean;
+}
+
 interface BookingModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -42,6 +54,9 @@ const timeSlots = [
 export const BookingModal = ({ isOpen, onClose }: BookingModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [services, setServices] = useState<ServiceSetting[]>([]);
+  const [stores, setStores] = useState<StoreSetting[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const { t } = useLanguage();
 
   const form = useForm<BookingFormData>({
@@ -60,17 +75,44 @@ export const BookingModal = ({ isOpen, onClose }: BookingModalProps) => {
     },
   });
 
-  const stores = [
-    { value: "yuanhua" as const, label: "中壢元化店（前站）" },
-    { value: "zhongfu" as const, label: "中壢忠福店（黃昏市場對面）" },
-  ];
+  useEffect(() => {
+    if (isOpen) {
+      fetchServicesAndStores();
+    }
+  }, [isOpen]);
 
-  const services = [
-    { value: "nail" as const, labelKey: "booking.service.nail" },
-    { value: "lash" as const, labelKey: "booking.service.lash" },
-    { value: "tattoo" as const, labelKey: "booking.service.tattoo" },
-    { value: "waxing" as const, labelKey: "booking.service.waxing" },
-  ];
+  const fetchServicesAndStores = async () => {
+    setIsLoadingData(true);
+    try {
+      const [servicesRes, storesRes] = await Promise.all([
+        supabase
+          .from('service_settings')
+          .select('service_id, name, is_active')
+          .eq('is_active', true)
+          .order('sort_order'),
+        supabase
+          .from('store_settings')
+          .select('store_id, name, is_active')
+          .eq('is_active', true)
+      ]);
+
+      if (servicesRes.error) {
+        console.error("Error fetching services:", servicesRes.error);
+      } else {
+        setServices(servicesRes.data || []);
+      }
+
+      if (storesRes.error) {
+        console.error("Error fetching stores:", storesRes.error);
+      } else {
+        setStores(storesRes.data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching data:", err);
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
   const onSubmit = async (data: BookingFormData) => {
     setIsSubmitting(true);
@@ -328,11 +370,21 @@ export const BookingModal = ({ isOpen, onClose }: BookingModalProps) => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {stores.map((store) => (
-                                <SelectItem key={store.value} value={store.value}>
-                                  {store.label}
+                              {isLoadingData ? (
+                                <SelectItem value="loading" disabled>
+                                  載入中...
                                 </SelectItem>
-                              ))}
+                              ) : stores.length === 0 ? (
+                                <SelectItem value="no-stores" disabled>
+                                  目前沒有可用門市
+                                </SelectItem>
+                              ) : (
+                                stores.map((store) => (
+                                  <SelectItem key={store.store_id} value={store.store_id}>
+                                    {store.name}
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -359,11 +411,21 @@ export const BookingModal = ({ isOpen, onClose }: BookingModalProps) => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {services.map((service) => (
-                                <SelectItem key={service.value} value={service.value}>
-                                  {t(service.labelKey)}
+                              {isLoadingData ? (
+                                <SelectItem value="loading" disabled>
+                                  載入中...
                                 </SelectItem>
-                              ))}
+                              ) : services.length === 0 ? (
+                                <SelectItem value="no-services" disabled>
+                                  目前沒有可用服務
+                                </SelectItem>
+                              ) : (
+                                services.map((service) => (
+                                  <SelectItem key={service.service_id} value={service.service_id}>
+                                    {service.name}
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />
