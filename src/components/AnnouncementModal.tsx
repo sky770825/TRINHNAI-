@@ -130,9 +130,11 @@ export const AnnouncementModal = ({ isOpen, onClose }: AnnouncementModalProps) =
                 transition={{ delay: 0.1 }}
                 className="space-y-4"
               >
-                <div className="whitespace-pre-line text-foreground leading-relaxed text-base">
-                  {announcement.content}
-                </div>
+                {announcement.content && (
+                  <div className="whitespace-pre-line text-foreground leading-relaxed text-base">
+                    {announcement.content}
+                  </div>
+                )}
                 
                 {(announcement.start_date || announcement.end_date) && (
                   <div className="flex flex-wrap gap-4 pt-4 border-t border-border/50 text-sm">

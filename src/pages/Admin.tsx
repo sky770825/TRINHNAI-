@@ -946,8 +946,8 @@ const Admin = () => {
   };
 
   const saveAnnouncement = async () => {
-    if (!announcementForm.title || !announcementForm.content) {
-      toast.error("請填寫標題和內容");
+    if (!announcementForm.title) {
+      toast.error("請填寫標題");
       return;
     }
 
@@ -959,7 +959,29 @@ const Admin = () => {
         const fileName = `announcement-${Date.now()}.${fileExt}`;
         const filePath = `${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
+        console.log("開始上傳圖片:", {
+          fileName,
+          filePath,
+          fileSize: selectedAnnouncementImageFile.size,
+          fileType: selectedAnnouncementImageFile.type
+        });
+
+        // 先檢查 bucket 是否存在
+        const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+        if (listError) {
+          console.error("檢查 bucket 列表失敗:", listError);
+        } else {
+          const bucketExists = buckets?.some(b => b.name === 'announcement-images');
+          console.log("Bucket 存在狀態:", bucketExists, "所有 buckets:", buckets?.map(b => b.name));
+          
+          if (!bucketExists) {
+            toast.error("Storage bucket 'announcement-images' 不存在，請先在 Supabase Dashboard 創建");
+            return;
+          }
+        }
+
+        // 上传图片到 storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
           .from('announcement-images')
           .upload(filePath, selectedAnnouncementImageFile, {
             cacheControl: '3600',
@@ -967,30 +989,57 @@ const Admin = () => {
           });
 
         if (uploadError) {
-          console.error("Upload error:", uploadError);
-          toast.error("圖片上傳失敗");
+          console.error("上傳錯誤詳情:", {
+            error: uploadError,
+            message: uploadError.message,
+            statusCode: uploadError.statusCode,
+            errorCode: uploadError.error
+          });
+          toast.error(`圖片上傳失敗：${uploadError.message || uploadError.error || '未知錯誤'} (錯誤碼: ${uploadError.statusCode || 'N/A'})`);
           return;
         }
 
+        if (!uploadData) {
+          console.error("Upload failed: No data returned");
+          toast.error("圖片上傳失敗：未返回數據");
+          return;
+        }
+
+        console.log("上傳成功，返回數據:", uploadData);
+
+        // 获取公开 URL
         const { data: { publicUrl } } = supabase.storage
           .from('announcement-images')
           .getPublicUrl(filePath);
 
+        if (!publicUrl) {
+          console.error("Failed to get public URL");
+          toast.error("獲取圖片公開 URL 失敗");
+          return;
+        }
+
+        console.log("獲取公開 URL 成功:", publicUrl);
         finalImageUrl = publicUrl;
 
+        // 如果是编辑模式，删除旧图片
         if (editingAnnouncement && editingAnnouncement.image_url && editingAnnouncement.image_url.includes('announcement-images')) {
           const oldPath = editingAnnouncement.image_url.split('/announcement-images/').pop();
           if (oldPath) {
-            await supabase.storage
+            const { error: removeError } = await supabase.storage
               .from('announcement-images')
               .remove([oldPath]);
+            
+            if (removeError) {
+              console.warn("Failed to remove old image:", removeError);
+              // 不阻止保存，只记录警告
+            }
           }
         }
       }
 
       const dataToSave: any = {
         title: announcementForm.title,
-        content: announcementForm.content,
+        content: announcementForm.content || null,
         image_url: finalImageUrl || null,
         is_active: announcementForm.is_active,
         priority: announcementForm.priority,
@@ -1029,6 +1078,9 @@ const Admin = () => {
         toast.success("公告已新增");
       }
       
+      // 清除图片上传状态
+      setSelectedAnnouncementImageFile(null);
+      setAnnouncementImagePreview('');
       setIsAnnouncementDialogOpen(false);
       fetchAnnouncements();
     } catch (err: any) {
@@ -2194,9 +2246,9 @@ const Admin = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">內容 *</label>
+              <label className="text-sm font-medium">內容（選填）</label>
               <Textarea
-                placeholder="公告內容（支援換行）"
+                placeholder="公告內容（支援換行，選填）"
                 value={announcementForm.content}
                 onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })}
                 rows={8}
