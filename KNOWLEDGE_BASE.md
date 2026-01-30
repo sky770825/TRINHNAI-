@@ -36,6 +36,24 @@
 | GitHub 私有 | 設為 private 可防止他人 clone 完整原始碼 |
 | 網站公開 | GitHub 私有不影響 Cloudflare 網站對外開放 |
 
+### 1.4 怎麼開啟後台
+
+本專案使用 **Hash 路由**，網址格式為 `https://你的網域/#/路徑`。
+
+| 路徑 | 說明 |
+|------|------|
+| `/#/auth` | **登入頁** — 用 Supabase Auth 的 email / 密碼登入 |
+| `/#/admin` | **後台（網站設定、預約、公告等）** — 需先登入且帳號具管理員權限 |
+| `/#/crm` | **CRM（預約／線索管理）** — 同上，登入且為管理員 |
+
+**步驟：**
+
+1. 開啟 **登入頁**：`https://trinhnai.pages.dev/#/auth`（或你的網域 + `/#/auth`）
+2. 使用已在 **Supabase Auth** 註冊的 email 與密碼登入
+3. 若該帳號在資料表 `user_roles` 中有 `role = 'admin'`，登入後會自動跳轉到 `/#/admin`；否則會顯示「權限不足」
+
+**首次建立管理員：** 在 Supabase Dashboard → **Authentication** 建立使用者（或註冊），再到 **Table Editor** 開啟 `user_roles`，新增一筆：`user_id` = 該使用者的 UUID（Authentication → Users 可查）、`role` = `admin`。若沒有 `user_roles` 表，需先執行專案 migration 建立。
+
 ---
 
 ## 二、部署與自動化流程

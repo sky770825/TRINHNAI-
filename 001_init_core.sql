@@ -233,6 +233,31 @@ ALTER TABLE app_triahni.site_settings         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_triahni.site_sections         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_triahni.media_assets          ENABLE ROW LEVEL SECURITY;
 
+-- 若曾執行過本檔，先移除既有 policy 再建立（可重複執行）
+DROP POLICY IF EXISTS "membership_tiers_select_public"      ON app_triahni.membership_tiers;
+DROP POLICY IF EXISTS "tag_dictionary_select_public"        ON app_triahni.tag_dictionary;
+DROP POLICY IF EXISTS "tag_dictionary_insert_admin_editor"  ON app_triahni.tag_dictionary;
+DROP POLICY IF EXISTS "tag_dictionary_update_admin_editor"  ON app_triahni.tag_dictionary;
+DROP POLICY IF EXISTS "tag_dictionary_delete_admin_editor"  ON app_triahni.tag_dictionary;
+DROP POLICY IF EXISTS "profiles_select_own"                  ON app_triahni.profiles;
+DROP POLICY IF EXISTS "profiles_select_admin_editor"        ON app_triahni.profiles;
+DROP POLICY IF EXISTS "profiles_update_own"                 ON app_triahni.profiles;
+DROP POLICY IF EXISTS "profiles_insert_own"                 ON app_triahni.profiles;
+DROP POLICY IF EXISTS "profile_tags_select_own"             ON app_triahni.profile_tags;
+DROP POLICY IF EXISTS "profile_tags_insert_own"             ON app_triahni.profile_tags;
+DROP POLICY IF EXISTS "profile_tags_insert_admin_editor"   ON app_triahni.profile_tags;
+DROP POLICY IF EXISTS "profile_tags_delete_own"             ON app_triahni.profile_tags;
+DROP POLICY IF EXISTS "profile_tags_delete_admin_editor"    ON app_triahni.profile_tags;
+DROP POLICY IF EXISTS "site_settings_select_admin_editor"   ON app_triahni.site_settings;
+DROP POLICY IF EXISTS "site_settings_insert_admin_editor"   ON app_triahni.site_settings;
+DROP POLICY IF EXISTS "site_settings_update_admin_editor"   ON app_triahni.site_settings;
+DROP POLICY IF EXISTS "site_settings_delete_admin_editor"   ON app_triahni.site_settings;
+DROP POLICY IF EXISTS "site_settings_select_public"         ON app_triahni.site_settings;
+DROP POLICY IF EXISTS "site_sections_select_public_enabled" ON app_triahni.site_sections;
+DROP POLICY IF EXISTS "site_sections_all_authenticated"    ON app_triahni.site_sections;
+DROP POLICY IF EXISTS "media_assets_select_public_active"   ON app_triahni.media_assets;
+DROP POLICY IF EXISTS "media_assets_all_admin_editor"      ON app_triahni.media_assets;
+
 -- membership_tiers: 公開可讀
 CREATE POLICY "membership_tiers_select_public"
   ON app_triahni.membership_tiers FOR SELECT
