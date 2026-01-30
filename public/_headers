@@ -1,7 +1,11 @@
-# 修正 Cloudflare Pages 對 JS/CSS 的 MIME 類型（避免 application/octet-stream 導致模組載入失敗）
+# 修正 Cloudflare Pages 對 JS/CSS 的 MIME 類型
 # https://developers.cloudflare.com/pages/configuration/headers/
-# 僅在「建置輸出目錄 = dist」時生效；若看到 main.tsx 錯誤，請先設 Build output directory = dist
+# 分開設定：.js 與 .css 不可共用同一 Content-Type，否則樣式會被拒載
 
-/assets/*
+/assets/*.js
   Content-Type: application/javascript
+  X-Content-Type-Options: nosniff
+
+/assets/*.css
+  Content-Type: text/css
   X-Content-Type-Options: nosniff

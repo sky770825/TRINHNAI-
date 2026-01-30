@@ -9,9 +9,16 @@
 
 ## 二、請在 Cloudflare Dashboard 檢查
 
-### 1. 環境變數（最常見原因）
+### 1. 環境變數（必設，否則會用 placeholder 且連線失敗）
 
 Vite 在**建置時**會把環境變數寫進 JS，沒設就不會生效。
+
+若 Console 出現：
+- `Missing Supabase environment variables... Please set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your Vercel project settings`（訊息寫 Vercel 但**請在 Cloudflare 設**）
+- `GET https://placeholder.supabase.co/... net::ERR_NAME_NOT_RESOLVED`
+- `Error fetching services` / `Error fetching announcement`
+
+代表建置時沒有帶入 Supabase 變數，網站會連到不存在的 placeholder。
 
 1. 打開 [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Workers & Pages** → 選你的 **trinhnai** 專案。
 2. 點 **Settings** → **Environment variables**。
@@ -36,10 +43,17 @@ Vite 在**建置時**會把環境變數寫進 JS，沒設就不會生效。
 
 設好後到 **Deployments** → 最新部署右側 **⋯** → **Retry deployment**，等建置完成再重新開網頁。
 
-### 3. 部署日誌
+### 3. CSS 被當成 JS（MIME type 錯誤）
+
+若 Console 出現：
+- `Refused to apply style from '.../assets/index-xxx.css' because its MIME type ('application/javascript') is not a supported stylesheet MIME type`
+
+代表 `_headers` 曾把整個 `/assets/*` 設成 `application/javascript`，已改為分開設定：`/assets/*.js` 用 `application/javascript`，`/assets/*.css` 用 `text/css`。**Push 程式後重新部署**即可。
+
+### 4. 部署日誌
 
 - **Deployments** → 點最新一次部署 → 看 **Build log**。
-- 若建置失敗，會寫原因；若建置成功但網頁仍空白，多半是執行期錯誤或環境變數未帶入。
+- 若建置失敗，會寫原因；若建置成功但網頁仍空白或出現 placeholder / MIME 錯誤，多半是**環境變數未在建置時帶入**，請完成「1. 環境變數」後 Retry deployment。
 
 ---
 
