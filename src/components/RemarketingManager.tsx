@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminLeads, ADMIN_LEADS_401_MESSAGE } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,16 +56,16 @@ const RemarketingManager = () => {
   const fetchMessages = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-leads", {
-        body: { action: "getRemarketingMessages" },
+      const result = await invokeAdminLeads<{ remarketingMessages?: RemarketingMessage[] }>({
+        action: "getRemarketingMessages",
       });
 
-      if (error || data?.error) {
-        toast.error("取得再行銷訊息失敗");
+      if (result.error) {
+        toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : "取得再行銷訊息失敗");
         return;
       }
 
-      setMessages(data.remarketingMessages || []);
+      setMessages((result.data?.remarketingMessages ?? []) as RemarketingMessage[]);
     } catch (err) {
       toast.error("連線錯誤");
     } finally {
@@ -106,17 +106,15 @@ const RemarketingManager = () => {
     try {
       if (editingMessage) {
         // Update existing
-        const { data, error } = await supabase.functions.invoke("admin-leads", {
-          body: {
-            action: "updateRemarketingMessage",
-            remarketingMessageId: editingMessage.id,
-            hoursAfterInterest: hours,
-            messageContent: formContent,
-          },
+        const result = await invokeAdminLeads({
+          action: "updateRemarketingMessage",
+          remarketingMessageId: editingMessage.id,
+          hoursAfterInterest: hours,
+          messageContent: formContent,
         });
 
-        if (error || data?.error) {
-          toast.error(data?.error || "更新失敗");
+        if (result.error) {
+          toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : (result.error as string) || "更新失敗");
           return;
         }
 
@@ -130,20 +128,18 @@ const RemarketingManager = () => {
         toast.success("已更新再行銷訊息");
       } else {
         // Create new
-        const { data, error } = await supabase.functions.invoke("admin-leads", {
-          body: {
-            action: "createRemarketingMessage",
-            hoursAfterInterest: hours,
-            messageContent: formContent,
-          },
+        const result = await invokeAdminLeads<{ message?: RemarketingMessage }>({
+          action: "createRemarketingMessage",
+          hoursAfterInterest: hours,
+          messageContent: formContent,
         });
 
-        if (error || data?.error) {
-          toast.error(data?.error || "建立失敗");
+        if (result.error) {
+          toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : (result.error as string) || "建立失敗");
           return;
         }
 
-        setMessages((prev) => [...prev, { ...data.message, sent_count: 0 }].sort(
+        setMessages((prev) => [...prev, { ...(result.data?.message ?? {}), sent_count: 0 } as RemarketingMessage].sort(
           (a, b) => a.hours_after_interest - b.hours_after_interest
         ));
         toast.success("已建立再行銷訊息");
@@ -159,16 +155,14 @@ const RemarketingManager = () => {
 
   const handleToggleActive = async (message: RemarketingMessage) => {
     try {
-      const { data, error } = await supabase.functions.invoke("admin-leads", {
-        body: {
-          action: "updateRemarketingMessage",
-          remarketingMessageId: message.id,
-          isActive: !message.is_active,
-        },
+      const result = await invokeAdminLeads({
+        action: "updateRemarketingMessage",
+        remarketingMessageId: message.id,
+        isActive: !message.is_active,
       });
 
-      if (error || data?.error) {
-        toast.error("更新狀態失敗");
+      if (result.error) {
+        toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : "更新狀態失敗");
         return;
       }
 
@@ -188,15 +182,13 @@ const RemarketingManager = () => {
 
     setIsDeleting(messageId);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-leads", {
-        body: {
-          action: "deleteRemarketingMessage",
-          remarketingMessageId: messageId,
-        },
+      const result = await invokeAdminLeads({
+        action: "deleteRemarketingMessage",
+        remarketingMessageId: messageId,
       });
 
-      if (error || data?.error) {
-        toast.error("刪除失敗");
+      if (result.error) {
+        toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : "刪除失敗");
         return;
       }
 

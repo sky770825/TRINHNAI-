@@ -14,25 +14,27 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
--- 設置 bucket 的 RLS 策略（允許所有人讀取）
-CREATE POLICY IF NOT EXISTS "Public Access"
+-- 設置 bucket 的 RLS 策略（先刪除再建立，可重複執行）
+DROP POLICY IF EXISTS "Public Access for announcement-images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload to announcement-images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can update announcement-images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can delete announcement-images" ON storage.objects;
+
+CREATE POLICY "Public Access for announcement-images"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'announcement-images');
 
--- 允許認證用戶上傳
-CREATE POLICY IF NOT EXISTS "Authenticated users can upload"
+CREATE POLICY "Authenticated users can upload to announcement-images"
 ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (bucket_id = 'announcement-images');
 
--- 允許認證用戶更新
-CREATE POLICY IF NOT EXISTS "Authenticated users can update"
+CREATE POLICY "Authenticated users can update announcement-images"
 ON storage.objects FOR UPDATE
 TO authenticated
 USING (bucket_id = 'announcement-images');
 
--- 允許認證用戶刪除
-CREATE POLICY IF NOT EXISTS "Authenticated users can delete"
+CREATE POLICY "Authenticated users can delete announcement-images"
 ON storage.objects FOR DELETE
 TO authenticated
 USING (bucket_id = 'announcement-images');

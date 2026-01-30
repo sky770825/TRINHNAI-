@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { invokeAdminLeads, ADMIN_LEADS_401_MESSAGE } from "@/api";
+import type { LineUser } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +14,8 @@ import {
   CreditCard, CheckCircle, Send, Megaphone, Filter, Repeat,
   Download, ClipboardList, ExternalLink, Settings, Plus, Trash2,
   Key, Power, PowerOff, ArrowUp, ArrowDown, Store, Image, Upload,
-  Ban, CalendarX, CalendarDays, List, ChevronDown, ChevronUp
+  Ban, CalendarX, CalendarDays, List, ChevronDown, ChevronUp,
+  FileText, LayoutGrid, Layers
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -48,22 +51,6 @@ import { DayPicker } from "react-day-picker";
 import { format, isSameDay, parseISO, startOfDay } from "date-fns";
 import { zhTW } from "date-fns/locale";
 import "react-day-picker/dist/style.css";
-
-interface LineUser {
-  id: string;
-  line_user_id: string;
-  display_name: string | null;
-  picture_url: string | null;
-  status_message: string | null;
-  follow_status: string;
-  tags: string[];
-  notes: string | null;
-  last_interaction_at: string | null;
-  created_at: string;
-  updated_at: string;
-  payment_status: string;
-  payment_last_5_digits: string | null;
-}
 
 interface BotKeyword {
   id: string;
@@ -104,6 +91,19 @@ const paymentStatusLabels: Record<string, { label: string; className: string }> 
   pending: { label: "待確認", className: "bg-yellow-100 text-yellow-800" },
   confirmed: { label: "已付費", className: "bg-green-100 text-green-800" },
 };
+
+/** 關鍵字回覆類型（Flex 設計用） */
+const RESPONSE_TYPE_OPTIONS: { value: string; label: string; shortDesc: string; Icon: React.ComponentType<{ className?: string }> }[] = [
+  { value: "text", label: "文字回覆", shortDesc: "純文字訊息", Icon: FileText },
+  { value: "image", label: "圖片", shortDesc: "單張圖片 + 選填說明", Icon: Image },
+  { value: "flex_bubble", label: "Flex 氣泡", shortDesc: "單一氣泡卡片（標題+內文+按鈕）", Icon: LayoutGrid },
+  { value: "flex_carousel", label: "Flex 輪播", shortDesc: "多個氣泡橫滑輪播", Icon: Layers },
+  { value: "quick_reply", label: "快速回覆", shortDesc: "文字 + 選項按鈕", Icon: Send },
+  { value: "registration", label: "報名流程", shortDesc: "啟動報名／匯款引導", Icon: ClipboardList },
+];
+
+const getResponseTypeLabel = (type: string) =>
+  RESPONSE_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? (type === "registration" ? "報名流程" : type === "text" ? "文字回覆" : type);
 
 const CRM = () => {
   const navigate = useNavigate();
@@ -301,8 +301,12 @@ const CRM = () => {
   };
 
   const saveKeyword = async () => {
-    if (!keywordForm.keyword.trim() || !keywordForm.response_content.trim()) {
-      toast.error("請填寫關鍵字和回覆內容");
+    if (!keywordForm.keyword.trim()) {
+      toast.error("請填寫關鍵字");
+      return;
+    }
+    if (keywordForm.response_type !== "registration" && !keywordForm.response_content.trim()) {
+      toast.error("請填寫回覆內容");
       return;
     }
 
@@ -341,9 +345,9 @@ const CRM = () => {
       
       setIsKeywordDialogOpen(false);
       fetchKeywords();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error saving keyword:", err);
-      if (err.code === '23505') {
+      if ((err as { code?: string })?.code === "23505") {
         toast.error("此關鍵字已存在");
       } else {
         toast.error("儲存失敗");
@@ -465,15 +469,9 @@ const CRM = () => {
   const confirmBooking = async (bookingId: string) => {
     try {
       // First update booking status and send LINE confirmation
-      const { data, error: funcError } = await supabase.functions.invoke("admin-leads", {
-        body: {
-          action: "sendBookingConfirmation",
-          lineBookingId: bookingId,
-        },
-      });
-
-      if (funcError || data?.error) {
-        toast.error(data?.error || "確認失敗");
+      const result = await invokeAdminLeads({ action: "sendBookingConfirmation", lineBookingId: bookingId });
+      if (result.error) {
+        toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : (result.error as string) || "確認失敗");
         return;
       }
 
@@ -532,12 +530,11 @@ const CRM = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const { data, error: funcError } = await supabase.functions.invoke("admin-leads", {
-        body: { action: "getLineUsers" },
-      });
-
-      if (!funcError && data?.lineUsers) {
-        setLineUsers(data.lineUsers);
+      const result = await invokeAdminLeads<{ lineUsers?: LineUser[] }>({ action: "getLineUsers" });
+      if (!result.error && result.data?.lineUsers) {
+        setLineUsers(result.data.lineUsers);
+      } else if (result.error && result.is401) {
+        toast.error(ADMIN_LEADS_401_MESSAGE);
       }
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -554,13 +551,12 @@ const CRM = () => {
   const refreshData = async () => {
     setIsLoading(true);
     try {
-      const { data, error: funcError } = await supabase.functions.invoke("admin-leads", {
-        body: { action: "getLineUsers" },
-      });
-
-      if (!funcError && data?.lineUsers) {
-        setLineUsers(data.lineUsers);
+      const result = await invokeAdminLeads<{ lineUsers?: LineUser[] }>({ action: "getLineUsers" });
+      if (!result.error && result.data?.lineUsers) {
+        setLineUsers(result.data.lineUsers);
         toast.success("資料已更新");
+      } else if (result.error && result.is401) {
+        toast.error(ADMIN_LEADS_401_MESSAGE);
       }
     } finally {
       setIsLoading(false);
@@ -584,17 +580,15 @@ const CRM = () => {
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
-      const { data, error: funcError } = await supabase.functions.invoke("admin-leads", {
-        body: {
-          action: "updateLineUser",
-          lineUserId: selectedUser.id,
-          notes: editNotes,
-          tags: tagsArray,
-        },
+      const result = await invokeAdminLeads({
+        action: "updateLineUser",
+        lineUserId: selectedUser.id,
+        notes: editNotes,
+        tags: tagsArray,
       });
 
-      if (funcError || data?.error) {
-        toast.error("更新失敗");
+      if (result.error) {
+        toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : "更新失敗");
         return;
       }
 
@@ -616,15 +610,9 @@ const CRM = () => {
   const handleConfirmPayment = async (userId: string) => {
     setIsConfirming(userId);
     try {
-      const { data, error: funcError } = await supabase.functions.invoke("admin-leads", {
-        body: {
-          action: "confirmPayment",
-          lineUserId: userId,
-        },
-      });
-
-      if (funcError || data?.error) {
-        toast.error("確認付款失敗");
+      const result = await invokeAdminLeads({ action: "confirmPayment", lineUserId: userId });
+      if (result.error) {
+        toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : "確認付款失敗");
         return;
       }
 
@@ -644,15 +632,9 @@ const CRM = () => {
   const handleSendPaymentConfirmation = async (userId: string) => {
     setIsSendingConfirmation(userId);
     try {
-      const { data, error: funcError } = await supabase.functions.invoke("admin-leads", {
-        body: {
-          action: "sendPaymentConfirmation",
-          lineUserId: userId,
-        },
-      });
-
-      if (funcError || data?.error) {
-        toast.error(data?.error || "發送確認訊息失敗");
+      const result = await invokeAdminLeads({ action: "sendPaymentConfirmation", lineUserId: userId });
+      if (result.error) {
+        toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : (result.error as string) || "發送確認訊息失敗");
         return;
       }
 
@@ -677,20 +659,18 @@ const CRM = () => {
 
     setIsBroadcasting(true);
     try {
-      const { data, error: funcError } = await supabase.functions.invoke("admin-leads", {
-        body: {
-          action: "broadcastMessage",
-          targetGroup: broadcastTarget,
-          message: broadcastMessage,
-        },
+      const result = await invokeAdminLeads({
+        action: "broadcastMessage",
+        targetGroup: broadcastTarget,
+        message: broadcastMessage,
       });
 
-      if (funcError || data?.error) {
-        toast.error(data?.error || "推播失敗");
+      if (result.error) {
+        toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : (result.error as string) || "推播失敗");
         return;
       }
 
-      toast.success(`已成功推播給 ${data.sentCount} 位用戶`);
+      toast.success(`已成功推播給 ${(result.data as { sentCount?: number })?.sentCount ?? 0} 位用戶`);
       setBroadcastMessage("");
       setIsBroadcastOpen(false);
     } catch (err) {
@@ -897,11 +877,11 @@ const CRM = () => {
                         />
                       </div>
                       <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-                        <SelectTrigger className="w-[140px]">
-                          <Filter className="w-4 h-4 mr-2" />
+                        <SelectTrigger className="w-[140px]" id="payment-filter-trigger">
+                          <Filter className="w-4 h-4 mr-2 shrink-0" />
                           <SelectValue placeholder="付款狀態" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent position="popper" sideOffset={4} className="z-[100]">
                           <SelectItem value="all">全部 ({userCounts.all})</SelectItem>
                           <SelectItem value="unpaid">未報名 ({userCounts.unpaid})</SelectItem>
                           <SelectItem value="pending">待確認 ({userCounts.pending})</SelectItem>
@@ -1146,14 +1126,16 @@ const CRM = () => {
                             </TableCell>
                             <TableCell>
                               <Badge variant={kw.response_type === 'registration' ? 'default' : 'secondary'}>
-                                {kw.response_type === 'registration' ? '報名流程' : '文字回覆'}
+                                {getResponseTypeLabel(kw.response_type)}
                               </Badge>
                             </TableCell>
                             <TableCell>
                               <p className="text-sm text-muted-foreground truncate max-w-[300px]">
                                 {kw.response_type === 'registration' 
                                   ? '啟動報名流程' 
-                                  : kw.response_content}
+                                  : kw.response_type === 'image' 
+                                    ? (kw.response_content ? '圖片連結' : '-')
+                                    : kw.response_content}
                               </p>
                             </TableCell>
                             <TableCell>
@@ -1253,11 +1235,11 @@ const CRM = () => {
                       </Button>
                     </div>
                     <Select value={bookingFilter} onValueChange={setBookingFilter}>
-                      <SelectTrigger className="w-[140px]">
-                        <Filter className="w-4 h-4 mr-2" />
+                      <SelectTrigger className="w-[140px] h-8" id="booking-status-filter-trigger">
+                        <Filter className="w-4 h-4 mr-2 shrink-0" />
                         <SelectValue placeholder="狀態篩選" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={4} className="z-[100]">
                         <SelectItem value="all">全部</SelectItem>
                         <SelectItem value="pending">待確認</SelectItem>
                         <SelectItem value="confirmed">已確認</SelectItem>
@@ -1865,22 +1847,28 @@ const CRM = () => {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">回覆類型 *</label>
-                <Select 
-                  value={keywordForm.response_type} 
-                  onValueChange={(value) => setKeywordForm({ ...keywordForm, response_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="text">文字回覆</SelectItem>
-                    <SelectItem value="registration">啟動報名流程</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {RESPONSE_TYPE_OPTIONS.map(({ value, label, shortDesc, Icon }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setKeywordForm({ ...keywordForm, response_type: value })}
+                      className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 text-left transition-all hover:border-primary/50 ${
+                        keywordForm.response_type === value
+                          ? "border-primary bg-primary/5"
+                          : "border-border bg-card"
+                      }`}
+                    >
+                      <Icon className="w-5 h-5 text-muted-foreground" />
+                      <span className="text-sm font-medium">{label}</span>
+                      <span className="text-xs text-muted-foreground line-clamp-2">{shortDesc}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {keywordForm.response_type === 'text' && (
+            {keywordForm.response_type === "text" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">回覆內容 *</label>
                 <Textarea
@@ -1895,9 +1883,54 @@ const CRM = () => {
               </div>
             )}
 
-            {keywordForm.response_type === 'registration' && (
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800">
+            {keywordForm.response_type === "image" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">圖片網址 *</label>
+                <Input
+                  placeholder="https://..."
+                  value={keywordForm.response_content}
+                  onChange={(e) => setKeywordForm({ ...keywordForm, response_content: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  請貼上圖片完整網址，LINE 會顯示該圖片
+                </p>
+              </div>
+            )}
+
+            {(keywordForm.response_type === "flex_bubble" || keywordForm.response_type === "flex_carousel") && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Flex JSON *</label>
+                <Textarea
+                  placeholder='{"type": "bubble", "body": {"type": "box", ...}}'
+                  value={keywordForm.response_content}
+                  onChange={(e) => setKeywordForm({ ...keywordForm, response_content: e.target.value })}
+                  rows={8}
+                  className="font-mono text-xs"
+                />
+                <p className="text-xs text-muted-foreground">
+                  flex_bubble：單一氣泡 JSON。flex_carousel：carousel 的 contents 陣列 JSON。可參考 LINE Flex Message 文件。
+                </p>
+              </div>
+            )}
+
+            {keywordForm.response_type === "quick_reply" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">回覆內容 *</label>
+                <Textarea
+                  placeholder="第一行：主要文字\n第二行起可寫「按鈕1,按鈕2,按鈕3」或 JSON"
+                  value={keywordForm.response_content}
+                  onChange={(e) => setKeywordForm({ ...keywordForm, response_content: e.target.value })}
+                  rows={4}
+                />
+                <p className="text-xs text-muted-foreground">
+                  第一行當作文字訊息，其後可放快速回覆按鈕（依 LINE webhook 實作格式）
+                </p>
+              </div>
+            )}
+
+            {keywordForm.response_type === "registration" && (
+              <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
                   ℹ️ 此關鍵字會啟動報名流程，顯示匯款資訊並引導用戶完成報名
                 </p>
               </div>

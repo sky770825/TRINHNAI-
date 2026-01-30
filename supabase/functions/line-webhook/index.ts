@@ -832,6 +832,90 @@ serve(async (req) => {
             }], accessToken);
             continue;
           }
+
+          // Handle image type keyword (response_content = image URL)
+          if (matchedKeyword.response_type === 'image') {
+            const url = matchedKeyword.response_content.trim();
+            if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+              await sendLineMessage(replyToken, [{
+                type: "image",
+                originalContentUrl: url,
+                previewImageUrl: url,
+              }], accessToken);
+            } else {
+              await sendLineMessage(replyToken, [{
+                type: "text",
+                text: "圖片連結無效，請提供 https 開頭的網址。",
+              }], accessToken);
+            }
+            continue;
+          }
+
+          // Handle flex_bubble: response_content = single bubble JSON (LINE Flex bubble object)
+          if (matchedKeyword.response_type === 'flex_bubble') {
+            try {
+              const parsed = JSON.parse(matchedKeyword.response_content);
+              const bubble = (parsed && typeof parsed.type === "string" && parsed.type === "bubble")
+                ? parsed
+                : { type: "bubble" as const, ...parsed };
+              const altText = (bubble.body?.contents?.[0]?.text) ?? (bubble.header?.contents?.[0]?.text) ?? "Flex 訊息";
+              await sendLineMessage(replyToken, [{
+                type: "flex",
+                altText,
+                contents: bubble,
+              }], accessToken);
+            } catch (e) {
+              console.error("flex_bubble JSON parse error:", e);
+              await sendLineMessage(replyToken, [{
+                type: "text",
+                text: "Flex 氣泡 JSON 格式錯誤，請檢查後再試。",
+              }], accessToken);
+            }
+            continue;
+          }
+
+          // Handle flex_carousel: response_content = JSON array of bubbles or { type: "carousel", contents: [...] }
+          if (matchedKeyword.response_type === 'flex_carousel') {
+            try {
+              const parsed = JSON.parse(matchedKeyword.response_content);
+              const contents = Array.isArray(parsed)
+                ? { type: "carousel", contents: parsed }
+                : (parsed.type === "carousel" ? parsed : { type: "carousel", contents: [parsed] });
+              await sendLineMessage(replyToken, [{
+                type: "flex",
+                altText: "輪播訊息",
+                contents,
+              }], accessToken);
+            } catch (e) {
+              console.error("flex_carousel JSON parse error:", e);
+              await sendLineMessage(replyToken, [{
+                type: "text",
+                text: "Flex 輪播 JSON 格式錯誤，請檢查後再試。",
+              }], accessToken);
+            }
+            continue;
+          }
+
+          // Handle quick_reply: first line = text, rest = comma-separated button labels (label = reply text)
+          if (matchedKeyword.response_type === 'quick_reply') {
+            const lines = matchedKeyword.response_content.trim().split(/\n/).map(s => s.trim()).filter(Boolean);
+            const text = lines[0] ?? "請選擇";
+            const labels = lines.length > 1 ? lines.slice(1).join(",").split(",").map(s => s.trim()).filter(Boolean).slice(0, 13) : [];
+            const quickReply = labels.length > 0
+              ? {
+                  items: labels.map((label: string) => ({
+                    type: "action" as const,
+                    action: { type: "message" as const, label, text: label },
+                  })),
+                }
+              : undefined;
+            await sendLineMessage(replyToken, [{
+              type: "text",
+              text,
+              ...(quickReply ? { quickReply } : {}),
+            }], accessToken);
+            continue;
+          }
           
           // Handle booking type keyword
           if (matchedKeyword.response_type === 'booking') {

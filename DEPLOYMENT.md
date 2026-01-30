@@ -80,7 +80,7 @@ supabase functions deploy remarketing-cron
 - `SUPABASE_URL`: 專案 URL
 - `SUPABASE_ANON_KEY`: Anon key
 - `SUPABASE_SERVICE_ROLE_KEY`: Service role key
-- `ADMIN_PASSWORD`: 管理員密碼（如需要）
+- `ADMIN_PASSWORD`: 管理員密碼（Edge Function 密碼驗證用；未登入時呼叫 admin-leads 需帶此密碼）
 - `LINE_CHANNEL_ACCESS_TOKEN`: LINE Bot access token
 - `LINE_CHANNEL_SECRET`: LINE Bot secret
 - `RESEND_API_KEY`: Resend API key（如需要）
@@ -124,6 +124,22 @@ npm run build
 # 預覽建置結果
 npm run preview
 ```
+
+## admin-leads 回傳 401 說明
+
+`admin-leads` Edge Function 需要驗證其一：
+
+1. **JWT**：使用者已登入且具備 admin 角色（`user_roles` 表中有 `role = 'admin'`）。
+2. **密碼**：請求 body 帶 `password`，且與 Edge Function 的環境變數 `ADMIN_PASSWORD` 相同。
+
+若未登入且未帶正確密碼，伺服器會回傳 **401 Unauthorized**，前端會顯示 toast 說明。
+
+**開發時不想登入**：在專案根目錄 `.env` 或 `.env.local` 設定：
+
+- `VITE_SKIP_AUTH=true`（略過登入）
+- `VITE_ADMIN_PASSWORD=你的密碼`（與 Supabase Edge Function 的 `ADMIN_PASSWORD` 相同）
+
+前端會自動在呼叫 `admin-leads` 時帶入此密碼，即可通過驗證。
 
 ## 檢查清單
 

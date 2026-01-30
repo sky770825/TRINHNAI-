@@ -60,20 +60,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        checkAdminRole(session.user.id).then((result) => {
-          setIsAdmin(result);
+    // THEN check for existing session（無 session 時不拋錯，視為未登入）
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          checkAdminRole(session.user.id).then((result) => {
+            setIsAdmin(result);
+            setIsLoading(false);
+          });
+        } else {
           setIsLoading(false);
-        });
-      } else {
+        }
+      })
+      .catch((err) => {
+        if (err?.name === "AuthSessionMissingError" || err?.__isAuthError) {
+          setSession(null);
+          setUser(null);
+          setIsAdmin(false);
+        }
         setIsLoading(false);
-      }
-    });
+      });
 
     return () => subscription.unsubscribe();
   }, []);

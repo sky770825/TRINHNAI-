@@ -23,12 +23,7 @@
 
 ```sql
 -- 建立 app_role 類型（如果不存在）
-DO $$ BEGIN
-    CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-```
+g
 
 然後再執行完整的 `20260112065349_create_announcements.sql` migration。
 

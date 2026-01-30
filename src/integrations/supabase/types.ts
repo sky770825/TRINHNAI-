@@ -113,6 +113,60 @@ export type Database = {
         }
         Relationships: []
       }
+      site_assets: {
+        Row: {
+          id: string
+          key: string
+          path: string | null
+          url: string | null
+          alt_text: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          path?: string | null
+          url?: string | null
+          alt_text?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          path?: string | null
+          url?: string | null
+          alt_text?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_content: {
+        Row: {
+          id: string
+          page_key: string
+          block_key: string
+          content: unknown
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          page_key: string
+          block_key: string
+          content?: unknown
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          page_key?: string
+          block_key?: string
+          content?: unknown
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       booking_blocks: {
         Row: {
           id: string

@@ -2,11 +2,49 @@ import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  fetchLeads,
+  fetchBookings,
+  updateBookingStatus as apiUpdateBookingStatus,
+  deleteBooking as apiDeleteBooking,
+  deleteLead as apiDeleteLead,
+  invokeAdminLeads,
+  isAdminLeads401,
+  ADMIN_LEADS_401_MESSAGE,
+  fetchServices as apiFetchServices,
+  fetchStores as apiFetchStores,
+  fetchServices as apiFetchServices,
+  fetchSiteAssets as apiFetchSiteAssets,
+  fetchSiteContent as apiFetchSiteContent,
+  updateSiteAsset,
+  insertSiteAsset,
+  uploadSiteAsset,
+  updateSiteContent as apiUpdateSiteContent,
+  fetchAnnouncements as apiFetchAnnouncements,
+  createAnnouncement,
+  updateAnnouncement,
+  deleteAnnouncement as apiDeleteAnnouncement,
+  toggleAnnouncementActive as apiToggleAnnouncementActive,
+  uploadAnnouncementImage,
+  checkAnnouncementBucketExists,
+  removeAnnouncementImage,
+  createService,
+  updateService,
+  deleteService as apiDeleteService,
+  updateServiceSortOrder,
+  uploadServiceImage,
+  removeServiceImage,
+  createStore,
+  updateStore,
+  deleteStore as apiDeleteStore,
+  toggleStoreActive as apiToggleStoreActive,
+} from "@/api";
+import type { Lead, Booking, ServiceSetting, StoreSetting, Announcement, SiteAssetRow, SiteContentRow } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { LogOut, Loader2, Users, Calendar, Mail, Heart, Phone, MessageCircle, Globe, CalendarDays, Store, Clock, Filter, X, ExternalLink, RefreshCw, Trash2, Bell, Image, Power, PowerOff, Plus, Edit2, Save, Upload, GripVertical, Trash, CheckCircle, AlertCircle } from "lucide-react";
+import { LogOut, Loader2, Users, Calendar, Mail, Heart, Phone, MessageCircle, Globe, CalendarDays, Store, Clock, Filter, X, ExternalLink, RefreshCw, Trash2, Bell, Image, Power, PowerOff, Plus, Edit2, Save, Upload, GripVertical, Trash } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import {
   Dialog,
@@ -60,73 +98,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { testAllConnections, formatTestResults, type ConnectionTestResult } from "@/utils/connectionTest";
-
-interface Lead {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  line_id: string | null;
-  service_interest: string;
-  booking_timeframe: string | null;
-  consent_promotions: boolean;
-  source: string | null;
-  notes: string | null;
-  created_at: string;
-}
-
-interface Booking {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  line_id: string | null;
-  store: string;
-  service: string;
-  booking_date: string;
-  booking_time: string;
-  notes: string | null;
-  status: string;
-  created_at: string;
-}
-
-interface ServiceSetting {
-  id: string;
-  service_id: string;
-  name: string;
-  description: string;
-  price_range: string;
-  image_url: string;
-  aspect_ratio: string;
-  is_active: boolean;
-  sort_order: number;
-}
-
-interface StoreSetting {
-  id: string;
-  store_id: string;
-  name: string;
-  address: string | null;
-  opening_time: string;
-  closing_time: string;
-  time_slot_duration: number;
-  available_days: string[];
-  is_active: boolean;
-}
-
-interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  image_url: string | null;
-  is_active: boolean;
-  priority: number;
-  start_date: string | null;
-  end_date: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 const serviceLabels: Record<string, string> = {
   nail: "美甲",
@@ -229,11 +200,43 @@ const Admin = () => {
   });
   const [announcementImagePreview, setAnnouncementImagePreview] = useState<string>('');
   const [selectedAnnouncementImageFile, setSelectedAnnouncementImageFile] = useState<File | null>(null);
-  
-  // 連接測試狀態
-  const [isTestingConnections, setIsTestingConnections] = useState(false);
-  const [connectionTestResults, setConnectionTestResults] = useState<ConnectionTestResult[]>([]);
-  const [showConnectionTest, setShowConnectionTest] = useState(false);
+
+  // 網站設定：Logo、封面、全站區塊
+  /** 將 content（JSON 物件/陣列）轉成易讀文字摘要，表格預覽用，不顯示程式碼 */
+  const contentToPreviewText = (content: unknown, maxLen = 80): string => {
+    const trunc = (s: string) => (s.length > maxLen ? s.slice(0, maxLen) + '…' : s);
+    if (content == null) return '—';
+    if (typeof content === 'string') return trunc(content);
+    if (Array.isArray(content)) {
+      const labels = content
+        .map((item) => (item && typeof item === 'object' && 'label' in item && typeof (item as { label?: unknown }).label === 'string' ? (item as { label: string }).label : null))
+        .filter(Boolean) as string[];
+      if (labels.length) return trunc(labels.join('、'));
+      return content.length ? `${content.length} 項` : '—';
+    }
+    if (typeof content === 'object') {
+      const obj = content as Record<string, unknown>;
+      const textKeys = ['copyright', 'badge', 'brand', 'headline1', 'headline2', 'services', 'cta_booking', 'cta_line', 'booking', 'contact'];
+      const parts: string[] = [];
+      for (const k of textKeys) {
+        const v = obj[k];
+        if (typeof v === 'string' && v.trim()) parts.push(v.trim());
+      }
+      if (parts.length) return trunc(parts.join(' · '));
+      const keys = Object.keys(obj);
+      return keys.length ? `${keys.length} 個欄位` : '—';
+    }
+    return '—';
+  };
+  const [siteAssets, setSiteAssets] = useState<SiteAssetRow[]>([]);
+  const [siteContent, setSiteContent] = useState<SiteContentRow[]>([]);
+  const [isLoadingSite, setIsLoadingSite] = useState(false);
+  const [siteLogoFile, setSiteLogoFile] = useState<File | null>(null);
+  const [siteCoverFile, setSiteCoverFile] = useState<File | null>(null);
+  const [isSavingSiteAsset, setIsSavingSiteAsset] = useState<string | null>(null);
+  const [editingContentId, setEditingContentId] = useState<string | null>(null);
+  const [editingContentJson, setEditingContentJson] = useState<string>("");
+  const [isSavingContent, setIsSavingContent] = useState(false);
 
   // Filtered bookings
   const filteredBookings = useMemo(() => {
@@ -271,26 +274,21 @@ const Admin = () => {
     fetchServices();
     fetchStores();
     fetchAnnouncements();
+    fetchSiteAssets();
+    fetchSiteContent();
   }, []);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // 直接從資料庫讀取資料
       const [leadsRes, bookingsRes] = await Promise.all([
-        supabase.from('leads').select('*').order('created_at', { ascending: false }),
-        supabase.from('bookings').select('*').order('created_at', { ascending: false })
+        fetchLeads(),
+        fetchBookings(),
       ]);
-
-      if (leadsRes.error) {
-        console.error("Error fetching leads:", leadsRes.error);
-      }
-      if (bookingsRes.error) {
-        console.error("Error fetching bookings:", bookingsRes.error);
-      }
-
-      setLeads(leadsRes.data || []);
-      setBookings(bookingsRes.data || []);
+      if (leadsRes.error) console.error("Error fetching leads:", leadsRes.error);
+      if (bookingsRes.error) console.error("Error fetching bookings:", bookingsRes.error);
+      setLeads(leadsRes.data ?? []);
+      setBookings(bookingsRes.data ?? []);
     } catch (err) {
       console.error("Error fetching data:", err);
     } finally {
@@ -310,23 +308,29 @@ const Admin = () => {
   const updateBookingStatus = async (bookingId: string, newStatus: string) => {
     setUpdatingBookingId(bookingId);
     try {
-      const { data, error: funcError } = await supabase.functions.invoke("admin-leads", {
-        body: { 
-          action: "updateStatus",
-          bookingId,
-          newStatus,
-        },
+      const result = await invokeAdminLeads<{ success?: boolean }>({
+        action: "updateStatus",
+        bookingId,
+        newStatus,
       });
-
-      if (funcError || data?.error) {
-        toast.error("更新狀態失敗");
+      if (!result.error) {
+        setBookings((prev) =>
+          prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
+        );
+        toast.success("狀態已更新");
         return;
       }
-
-      setBookings((prev) =>
-        prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
-      );
-      toast.success("狀態已更新");
+      if (import.meta.env.DEV) {
+        const { error: directError } = await apiUpdateBookingStatus(bookingId, newStatus);
+        if (!directError) {
+          setBookings((prev) =>
+            prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
+          );
+          toast.success("狀態已更新（開發模式直接寫入）");
+          return;
+        }
+      }
+      toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : "更新狀態失敗");
     } catch (err) {
       toast.error("更新狀態失敗");
     } finally {
@@ -337,20 +341,21 @@ const Admin = () => {
   const deleteBooking = async (bookingId: string) => {
     setDeletingBookingId(bookingId);
     try {
-      const { data, error: funcError } = await supabase.functions.invoke("admin-leads", {
-        body: { 
-          action: "deleteBooking",
-          bookingId,
-        },
-      });
-
-      if (funcError || data?.error) {
-        toast.error("刪除預約失敗");
+      const result = await invokeAdminLeads({ action: "deleteBooking", bookingId });
+      if (!result.error) {
+        setBookings((prev) => prev.filter((b) => b.id !== bookingId));
+        toast.success("預約已刪除");
         return;
       }
-
-      setBookings((prev) => prev.filter((b) => b.id !== bookingId));
-      toast.success("預約已刪除");
+      if (import.meta.env.DEV) {
+        const { error: directError } = await apiDeleteBooking(bookingId);
+        if (!directError) {
+          setBookings((prev) => prev.filter((b) => b.id !== bookingId));
+          toast.success("預約已刪除（開發模式直接寫入）");
+          return;
+        }
+      }
+      toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : "刪除預約失敗");
     } catch (err) {
       toast.error("刪除預約失敗");
     } finally {
@@ -361,20 +366,21 @@ const Admin = () => {
   const deleteLead = async (leadId: string) => {
     setDeletingLeadId(leadId);
     try {
-      const { data, error: funcError } = await supabase.functions.invoke("admin-leads", {
-        body: { 
-          action: "deleteLead",
-          leadId,
-        },
-      });
-
-      if (funcError || data?.error) {
-        toast.error("刪除名單失敗");
+      const result = await invokeAdminLeads({ action: "deleteLead", leadId });
+      if (!result.error) {
+        setLeads((prev) => prev.filter((l) => l.id !== leadId));
+        toast.success("名單已刪除");
         return;
       }
-
-      setLeads((prev) => prev.filter((l) => l.id !== leadId));
-      toast.success("名單已刪除");
+      if (import.meta.env.DEV) {
+        const { error: directError } = await apiDeleteLead(leadId);
+        if (!directError) {
+          setLeads((prev) => prev.filter((l) => l.id !== leadId));
+          toast.success("名單已刪除（開發模式直接寫入）");
+          return;
+        }
+      }
+      toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : "刪除名單失敗");
     } catch (err) {
       toast.error("刪除名單失敗");
     } finally {
@@ -382,17 +388,12 @@ const Admin = () => {
     }
   };
 
-  // Services functions
   const fetchServices = async () => {
     setIsLoadingServices(true);
     try {
-      const { data, error } = await supabase
-        .from('service_settings')
-        .select('*')
-        .order('sort_order');
-      
+      const { data, error } = await apiFetchServices();
       if (error) throw error;
-      setServices(data || []);
+      setServices(data ?? []);
     } catch (err) {
       console.error("Error fetching services:", err);
     } finally {
@@ -493,104 +494,59 @@ const Admin = () => {
       toast.error("請填寫服務 ID 和名稱");
       return;
     }
-
     if (!selectedImageFile && !editingService) {
       toast.error("請上傳圖片");
       return;
     }
-
     try {
       let finalImageUrl = serviceForm.image_url;
-
       if (selectedImageFile) {
-        const fileExt = selectedImageFile.name.split('.').pop();
-        const fileName = `${serviceForm.service_id}-${Date.now()}.${fileExt}`;
-        const filePath = `${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('service-images')
-          .upload(filePath, selectedImageFile, {
-            cacheControl: '3600',
-            upsert: false
-          });
-
-        if (uploadError) {
-          console.error("Upload error:", uploadError);
+        const fileExt = selectedImageFile.name.split(".").pop();
+        const filePath = `${serviceForm.service_id}-${Date.now()}.${fileExt}`;
+        const { publicUrl, error: uploadError } = await uploadServiceImage(selectedImageFile, filePath);
+        if (uploadError || !publicUrl) {
           toast.error("圖片上傳失敗");
           return;
         }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('service-images')
-          .getPublicUrl(filePath);
-
         finalImageUrl = publicUrl;
-
-        if (editingService && editingService.image_url.includes('service-images')) {
-          const oldPath = editingService.image_url.split('/service-images/').pop();
-          if (oldPath) {
-            await supabase.storage
-              .from('service-images')
-              .remove([oldPath]);
-          }
+        if (editingService?.image_url?.includes("service-images")) {
+          const oldPath = editingService.image_url.split("/service-images/").pop();
+          if (oldPath) await removeServiceImage(oldPath);
         }
       }
-
+      const payload = {
+        service_id: serviceForm.service_id,
+        name: serviceForm.name,
+        description: serviceForm.description,
+        price_range: serviceForm.price_range,
+        image_url: finalImageUrl,
+        aspect_ratio: serviceForm.aspect_ratio,
+        sort_order: serviceForm.sort_order,
+        ...(editingService ? { updated_at: new Date().toISOString() } : {}),
+      };
       if (editingService) {
-        const { error } = await supabase
-          .from('service_settings')
-          .update({
-            service_id: serviceForm.service_id,
-            name: serviceForm.name,
-            description: serviceForm.description,
-            price_range: serviceForm.price_range,
-            image_url: finalImageUrl,
-            aspect_ratio: serviceForm.aspect_ratio,
-            sort_order: serviceForm.sort_order,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editingService.id);
-        
+        const { error } = await updateService(editingService.id, payload);
         if (error) throw error;
         toast.success("服務已更新");
       } else {
-        const { error } = await supabase
-          .from('service_settings')
-          .insert({
-            service_id: serviceForm.service_id,
-            name: serviceForm.name,
-            description: serviceForm.description,
-            price_range: serviceForm.price_range,
-            image_url: finalImageUrl,
-            aspect_ratio: serviceForm.aspect_ratio,
-            sort_order: serviceForm.sort_order,
-          });
-        
+        const { error } = await createService(payload);
         if (error) throw error;
         toast.success("服務已新增");
       }
-      
       setIsServiceDialogOpen(false);
       setSelectedImageFile(null);
-      setImagePreview('');
+      setImagePreview("");
       fetchServices();
-    } catch (err: any) {
-      console.error("Error saving service:", err);
-      if (err.code === '23505') {
-        toast.error("此服務 ID 已存在");
-      } else {
-        toast.error("儲存失敗");
-      }
+    } catch (err: unknown) {
+      const e = err as { code?: string };
+      if (e?.code === "23505") toast.error("此服務 ID 已存在");
+      else toast.error("儲存失敗");
     }
   };
 
   const toggleServiceActive = async (id: string, isActive: boolean) => {
     try {
-      const { error } = await supabase
-        .from('service_settings')
-        .update({ is_active: !isActive })
-        .eq('id', id);
-      
+      const { error } = await updateService(id, { is_active: !isActive });
       if (error) throw error;
       toast.success(isActive ? "服務已停用" : "服務已啟用");
       fetchServices();
@@ -601,26 +557,14 @@ const Admin = () => {
 
   const deleteService = async (id: string) => {
     if (!confirm("確定要刪除此服務嗎？這將同時刪除相關圖片。")) return;
-    
     try {
-      const service = services.find(s => s.id === id);
-      
-      const { error } = await supabase
-        .from('service_settings')
-        .delete()
-        .eq('id', id);
-      
+      const service = services.find((s) => s.id === id);
+      const { error } = await apiDeleteService(id);
       if (error) throw error;
-
-      if (service && service.image_url.includes('service-images')) {
-        const imagePath = service.image_url.split('/service-images/').pop();
-        if (imagePath) {
-          await supabase.storage
-            .from('service-images')
-            .remove([imagePath]);
-        }
+      if (service?.image_url?.includes("service-images")) {
+        const imagePath = service.image_url.split("/service-images/").pop();
+        if (imagePath) await removeServiceImage(imagePath);
       }
-      
       toast.success("服務已刪除");
       fetchServices();
     } catch (err) {
@@ -646,18 +590,10 @@ const Admin = () => {
       setServices(newServices);
 
       try {
-        const updates = newServices.map((service, index) => ({
-          id: service.id,
-          sort_order: index,
-        }));
-
-        for (const update of updates) {
-          await supabase
-            .from('service_settings')
-            .update({ sort_order: update.sort_order })
-            .eq('id', update.id);
+        for (let i = 0; i < newServices.length; i++) {
+          const { error } = await updateServiceSortOrder(newServices[i].id, i);
+          if (error) throw error;
         }
-
         toast.success("排序已更新");
       } catch (err) {
         console.error("Error updating sort order:", err);
@@ -749,20 +685,99 @@ const Admin = () => {
     );
   };
 
-  // Stores functions
   const fetchStores = async () => {
     setIsLoadingStores(true);
     try {
-      const { data, error } = await supabase
-        .from('store_settings')
-        .select('*');
-      
+      const { data, error } = await apiFetchStores();
       if (error) throw error;
-      setStores(data || []);
+      setStores(data ?? []);
     } catch (err) {
       console.error("Error fetching stores:", err);
     } finally {
       setIsLoadingStores(false);
+    }
+  };
+
+  const fetchSiteAssets = async () => {
+    setIsLoadingSite(true);
+    try {
+      const { data, error } = await apiFetchSiteAssets();
+      if (error) throw error;
+      setSiteAssets(data ?? []);
+    } catch (err) {
+      console.error("Error fetching site_assets:", err);
+      setSiteAssets([]);
+    } finally {
+      setIsLoadingSite(false);
+    }
+  };
+
+  const fetchSiteContent = async () => {
+    try {
+      const { data, error } = await apiFetchSiteContent();
+      if (error) throw error;
+      setSiteContent(data ?? []);
+    } catch (err) {
+      console.error("Error fetching site_content:", err);
+      setSiteContent([]);
+    }
+  };
+
+  const saveSiteAsset = async (key: string, file: File, altText?: string) => {
+    setIsSavingSiteAsset(key);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${key === "logo" ? "logo" : "cover"}/${key}-${Date.now()}.${ext}`;
+      const { publicUrl, error: uploadError } = await uploadSiteAsset("site-assets", file, path);
+      if (uploadError || !publicUrl) {
+        toast.error(`上傳失敗：${(uploadError as Error)?.message ?? "未知錯誤"}`);
+        return;
+      }
+      const row = siteAssets.find((a) => a.key === key);
+      if (row) {
+        const { error: updateError } = await updateSiteAsset(row.id, { path, url: publicUrl, alt_text: altText ?? row.alt_text });
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await insertSiteAsset({ key, path, url: publicUrl, alt_text: altText ?? null });
+        if (insertError) throw insertError;
+      }
+      toast.success(key === "logo" ? "Logo 已更新" : "封面已更新");
+      setSiteLogoFile(null);
+      setSiteCoverFile(null);
+      fetchSiteAssets();
+    } catch (err: unknown) {
+      toast.error("儲存失敗");
+      console.error(err);
+    } finally {
+      setIsSavingSiteAsset(null);
+    }
+  };
+
+  const openContentEdit = (row: SiteContentRow) => {
+    setEditingContentId(row.id);
+    setEditingContentJson(typeof row.content === 'string' ? row.content : JSON.stringify(row.content, null, 2));
+  };
+
+  const saveSiteContent = async () => {
+    if (!editingContentId) return;
+    setIsSavingContent(true);
+    try {
+      let content: unknown;
+      try {
+        content = JSON.parse(editingContentJson);
+      } catch {
+        toast.error("content 必須為合法 JSON");
+        return;
+      }
+      const { error } = await apiUpdateSiteContent(editingContentId, content);
+      if (error) throw error;
+      toast.success("已儲存");
+      setEditingContentId(null);
+      fetchSiteContent();
+    } catch (err) {
+      toast.error("儲存失敗");
+    } finally {
+      setIsSavingContent(false);
     }
   };
 
@@ -798,61 +813,38 @@ const Admin = () => {
       toast.error("請填寫分店 ID 和名稱");
       return;
     }
-
     try {
+      const payload = {
+        store_id: storeForm.store_id,
+        name: storeForm.name,
+        address: storeForm.address || null,
+        opening_time: storeForm.opening_time,
+        closing_time: storeForm.closing_time,
+        time_slot_duration: storeForm.time_slot_duration,
+        available_days: storeForm.available_days,
+        ...(editingStore ? { updated_at: new Date().toISOString() } : {}),
+      };
       if (editingStore) {
-        const { error } = await supabase
-          .from('store_settings')
-          .update({
-            store_id: storeForm.store_id,
-            name: storeForm.name,
-            address: storeForm.address || null,
-            opening_time: storeForm.opening_time,
-            closing_time: storeForm.closing_time,
-            time_slot_duration: storeForm.time_slot_duration,
-            available_days: storeForm.available_days,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editingStore.id);
-        
+        const { error } = await updateStore(editingStore.id, payload);
         if (error) throw error;
         toast.success("分店已更新");
       } else {
-        const { error } = await supabase
-          .from('store_settings')
-          .insert({
-            store_id: storeForm.store_id,
-            name: storeForm.name,
-            address: storeForm.address || null,
-            opening_time: storeForm.opening_time,
-            closing_time: storeForm.closing_time,
-            time_slot_duration: storeForm.time_slot_duration,
-            available_days: storeForm.available_days,
-          });
-        
+        const { error } = await createStore(payload);
         if (error) throw error;
         toast.success("分店已新增");
       }
-      
       setIsStoreDialogOpen(false);
       fetchStores();
-    } catch (err: any) {
-      console.error("Error saving store:", err);
-      if (err.code === '23505') {
-        toast.error("此分店 ID 已存在");
-      } else {
-        toast.error("儲存失敗");
-      }
+    } catch (err: unknown) {
+      const e = err as { code?: string };
+      if (e?.code === "23505") toast.error("此分店 ID 已存在");
+      else toast.error("儲存失敗");
     }
   };
 
   const toggleStoreActive = async (id: string, isActive: boolean) => {
     try {
-      const { error } = await supabase
-        .from('store_settings')
-        .update({ is_active: !isActive })
-        .eq('id', id);
-      
+      const { error } = await apiToggleStoreActive(id, isActive);
       if (error) throw error;
       toast.success(isActive ? "分店已停用" : "分店已啟用");
       fetchStores();
@@ -863,13 +855,8 @@ const Admin = () => {
 
   const deleteStore = async (id: string) => {
     if (!confirm("確定要刪除此分店嗎？")) return;
-    
     try {
-      const { error } = await supabase
-        .from('store_settings')
-        .delete()
-        .eq('id', id);
-      
+      const { error } = await apiDeleteStore(id);
       if (error) throw error;
       toast.success("分店已刪除");
       fetchStores();
@@ -878,46 +865,17 @@ const Admin = () => {
     }
   };
 
-  // Announcements functions
   const fetchAnnouncements = async () => {
     setIsLoadingAnnouncements(true);
     try {
-      const { data, error } = await supabase
-        .from('announcements')
-        .select('*')
-        .order('priority', { ascending: false })
-        .order('created_at', { ascending: false });
-      
+      const { data, error } = await apiFetchAnnouncements();
       if (error) throw error;
-      setAnnouncements(data || []);
+      setAnnouncements(data ?? []);
     } catch (err) {
       console.error("Error fetching announcements:", err);
       toast.error("載入公告失敗");
     } finally {
       setIsLoadingAnnouncements(false);
-    }
-  };
-
-  // 檢測 Storage bucket 是否存在
-  const checkStorageBucket = async (): Promise<boolean> => {
-    try {
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-      
-      if (listError) {
-        console.error("檢查 bucket 列表失敗:", listError);
-        return false;
-      }
-      
-      const bucketExists = buckets?.some(b => b.name === 'announcement-images') || false;
-      console.log("Bucket 檢測結果:", {
-        exists: bucketExists,
-        allBuckets: buckets?.map(b => ({ name: b.name, public: b.public }))
-      });
-      
-      return bucketExists;
-    } catch (err) {
-      console.error("檢測 bucket 時發生錯誤:", err);
-      return false;
     }
   };
 
@@ -950,13 +908,8 @@ const Admin = () => {
       setSelectedAnnouncementImageFile(null);
     }
     
-    // 打開對話框時檢測 bucket
-    const bucketExists = await checkStorageBucket();
-    if (!bucketExists) {
-      console.warn("Storage bucket 'announcement-images' 不存在");
-      // 不阻止打開對話框，但在上傳時會處理
-    }
-    
+    const bucketExists = await checkAnnouncementBucketExists();
+    if (!bucketExists) console.warn("Storage bucket 'announcement-images' 不存在");
     setIsAnnouncementDialogOpen(true);
   };
 
@@ -1038,13 +991,10 @@ const Admin = () => {
           }
         }
 
-        // 上传图片到 storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('announcement-images')
-          .upload(filePath, selectedAnnouncementImageFile, {
-            cacheControl: '3600',
-            upsert: false
-          });
+        const { publicUrl: uploadedUrl, error: uploadError } = await uploadAnnouncementImage(
+          selectedAnnouncementImageFile,
+          filePath
+        );
 
         if (uploadError) {
           console.error("上傳錯誤詳情:", {
@@ -1059,12 +1009,15 @@ const Admin = () => {
           let errorMessage = `圖片上傳失敗：${uploadError.message || uploadError.error || '未知錯誤'}`;
           let errorHint = '';
           
-          if (uploadError.message?.includes('not found') || uploadError.message?.includes('does not exist') || uploadError.statusCode === 404) {
+          if ((uploadError as { __isAuthError?: boolean; name?: string })?.__isAuthError === true || (uploadError as { name?: string })?.name === "AuthSessionMissingError") {
+            errorMessage = "未登入或 session 已過期";
+            errorHint = "請執行 DEV_RLS_allow_anon_writes.sql 以允許未登入上傳（開發用），或登入後再試";
+          } else if (uploadError.message?.includes('not found') || uploadError.message?.includes('does not exist') || uploadError.statusCode === 404) {
             errorMessage = "Storage bucket 'announcement-images' 不存在";
             errorHint = "請在 Supabase Dashboard → Storage → New bucket 創建，或執行 CREATE_ANNOUNCEMENT_STORAGE_BUCKET.sql";
           } else if (uploadError.message?.includes('new row violates row-level security policy') || uploadError.statusCode === 42501) {
             errorMessage = "權限不足：RLS 策略阻止上傳";
-            errorHint = "請檢查 storage.objects 表的 RLS 策略，確保認證用戶可以上傳到 announcement-images bucket。執行 CHECK_STORAGE_SETUP.sql 檢查。";
+            errorHint = "請執行 DEV_RLS_allow_anon_writes.sql（開發用）或登入後再試。執行 CHECK_STORAGE_SETUP.sql 可檢查 RLS。";
           } else if (uploadError.message?.includes('JWT') || uploadError.message?.includes('token')) {
             errorMessage = "認證失敗：請重新登入";
             errorHint = "您的登入狀態可能已過期，請重新登入後再試";
@@ -1084,47 +1037,20 @@ const Admin = () => {
           return;
         }
 
-        if (!uploadData) {
-          console.error("Upload failed: No data returned");
-          toast.error("圖片上傳失敗：未返回數據");
+        if (!uploadedUrl) {
+          toast.error("圖片上傳失敗：未返回 URL");
           return;
         }
-
-        console.log("上傳成功，返回數據:", uploadData);
-
-        // 获取公开 URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('announcement-images')
-          .getPublicUrl(filePath);
-
-        if (!publicUrl) {
-          console.error("Failed to get public URL");
-          toast.error("獲取圖片公開 URL 失敗");
-          return;
-        }
-
-        console.log("獲取公開 URL 成功:", publicUrl);
-        finalImageUrl = publicUrl;
-
-        // 如果是编辑模式，删除旧图片
-        if (editingAnnouncement && editingAnnouncement.image_url && editingAnnouncement.image_url.includes('announcement-images')) {
-          const oldPath = editingAnnouncement.image_url.split('/announcement-images/').pop();
-          if (oldPath) {
-            const { error: removeError } = await supabase.storage
-              .from('announcement-images')
-              .remove([oldPath]);
-            
-            if (removeError) {
-              console.warn("Failed to remove old image:", removeError);
-              // 不阻止保存，只记录警告
-            }
-          }
+        finalImageUrl = uploadedUrl;
+        if (editingAnnouncement?.image_url?.includes("announcement-images")) {
+          const oldPath = editingAnnouncement.image_url.split("/announcement-images/").pop();
+          if (oldPath) await removeAnnouncementImage(oldPath);
         }
       }
 
-      const dataToSave: any = {
+      const dataToSave = {
         title: announcementForm.title,
-        content: announcementForm.content || null,
+        content: announcementForm.content ?? "",
         image_url: finalImageUrl || null,
         is_active: announcementForm.is_active,
         priority: announcementForm.priority,
@@ -1133,56 +1059,37 @@ const Admin = () => {
       };
 
       if (editingAnnouncement) {
-        const { error } = await supabase
-          .from('announcements')
-          .update(dataToSave)
-          .eq('id', editingAnnouncement.id);
-        
+        const { error } = await updateAnnouncement(editingAnnouncement.id, dataToSave);
         if (error) {
-          console.error("Error updating announcement:", error);
-          toast.error(`更新失敗：${error.message || '未知錯誤'}`);
+          toast.error(`更新失敗：${(error as Error).message || "未知錯誤"}`);
           return;
         }
         toast.success("公告已更新");
       } else {
-        const { error } = await supabase
-          .from('announcements')
-          .insert(dataToSave);
-        
+        const { error } = await createAnnouncement(dataToSave);
         if (error) {
-          console.error("Error inserting announcement:", error);
-          if (error.code === '42501') {
-            toast.error("權限不足，請確認您有管理員權限");
-          } else if (error.code === '42P01') {
-            toast.error("公告表不存在，請先執行 migration");
-          } else {
-            toast.error(`新增失敗：${error.message || '未知錯誤'}`);
-          }
+          const e = error as Error & { code?: string };
+          if (e?.code === "42501") toast.error("權限不足，請確認您有管理員權限");
+          else if (e?.code === "42P01") toast.error("公告表不存在，請先執行 migration");
+          else toast.error(`新增失敗：${e?.message || "未知錯誤"}`);
           return;
         }
         toast.success("公告已新增");
       }
-      
-      // 清除图片上传状态
       setSelectedAnnouncementImageFile(null);
-      setAnnouncementImagePreview('');
+      setAnnouncementImagePreview("");
       setIsAnnouncementDialogOpen(false);
       fetchAnnouncements();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error saving announcement:", err);
-      toast.error(`儲存失敗：${err.message || '未知錯誤'}`);
+      toast.error(`儲存失敗：${(err as Error)?.message || "未知錯誤"}`);
     }
   };
 
   const deleteAnnouncement = async (id: string) => {
     if (!confirm("確定要刪除此公告嗎？")) return;
-    
     try {
-      const { error } = await supabase
-        .from('announcements')
-        .delete()
-        .eq('id', id);
-      
+      const { error } = await apiDeleteAnnouncement(id);
       if (error) throw error;
       toast.success("公告已刪除");
       fetchAnnouncements();
@@ -1193,11 +1100,7 @@ const Admin = () => {
 
   const toggleAnnouncementActive = async (id: string, isActive: boolean) => {
     try {
-      const { error } = await supabase
-        .from('announcements')
-        .update({ is_active: !isActive })
-        .eq('id', id);
-      
+      const { error } = await apiToggleAnnouncementActive(id, isActive);
       if (error) throw error;
       toast.success(isActive ? "公告已停用" : "公告已啟用");
       fetchAnnouncements();
@@ -1231,40 +1134,6 @@ const Admin = () => {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={async () => {
-                setIsTestingConnections(true);
-                setShowConnectionTest(true);
-                const results = await testAllConnections();
-                setConnectionTestResults(results);
-                setIsTestingConnections(false);
-                
-                const successCount = results.filter(r => r.status === 'success').length;
-                const errorCount = results.filter(r => r.status === 'error').length;
-                const warningCount = results.filter(r => r.status === 'warning').length;
-                
-                if (errorCount === 0 && warningCount === 0) {
-                  toast.success(`所有連接測試通過！(${successCount} 項)`);
-                } else {
-                  toast.warning(`測試完成：${successCount} 成功，${warningCount} 警告，${errorCount} 錯誤`);
-                }
-              }}
-              disabled={isTestingConnections}
-            >
-              {isTestingConnections ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  測試中...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  檢查連接
-                </>
-              )}
-            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link to="/crm">
                 <MessageCircle className="w-4 h-4" />
@@ -1283,7 +1152,7 @@ const Admin = () => {
       {/* Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="bookings" className="w-full">
-          <TabsList className="grid w-full max-w-4xl grid-cols-5 mb-6">
+          <TabsList className="grid w-full max-w-5xl grid-cols-6 mb-6">
             <TabsTrigger value="bookings" className="flex items-center gap-2">
               <CalendarDays className="w-4 h-4" />
               預約記錄 ({filteredBookings.length})
@@ -1303,6 +1172,10 @@ const Admin = () => {
             <TabsTrigger value="stores" className="flex items-center gap-2">
               <Store className="w-4 h-4" />
               分店設定
+            </TabsTrigger>
+            <TabsTrigger value="site" className="flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              網站設定
             </TabsTrigger>
           </TabsList>
 
@@ -2034,8 +1907,156 @@ const Admin = () => {
               )}
             </motion.div>
           </TabsContent>
+
+          {/* 網站設定：Logo、封面、全站區塊 */}
+          <TabsContent value="site">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-card rounded-2xl shadow-card border border-border/50 overflow-hidden"
+            >
+              <div className="p-6 border-b border-border/50">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-primary" />
+                  網站設定
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  編輯 Logo、首頁封面與全站區塊文案
+                </p>
+              </div>
+              <div className="p-6 space-y-8">
+                {isLoadingSite ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <>
+                    {/* Logo */}
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium">Logo</h3>
+                      <div className="flex flex-wrap items-end gap-4">
+                        {(siteAssets.find((a) => a.key === 'logo')?.url) && (
+                          <img
+                            src={siteAssets.find((a) => a.key === 'logo')!.url!}
+                            alt="Logo"
+                            className="h-16 object-contain border rounded"
+                          />
+                        )}
+                        <div className="flex flex-col gap-2">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setSiteLogoFile(e.target.files?.[0] ?? null)}
+                            className="max-w-xs"
+                          />
+                          <Button
+                            size="sm"
+                            disabled={!siteLogoFile}
+                            onClick={() => siteLogoFile && saveSiteAsset('logo', siteLogoFile)}
+                          >
+                            {isSavingSiteAsset === 'logo' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                            {isSavingSiteAsset === 'logo' ? '上傳中...' : '上傳 Logo'}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 封面 */}
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium">首頁封面（Hero 圖）</h3>
+                      <div className="flex flex-wrap items-end gap-4">
+                        {(siteAssets.find((a) => a.key === 'hero_cover')?.url) && (
+                          <img
+                            src={siteAssets.find((a) => a.key === 'hero_cover')!.url!}
+                            alt="封面"
+                            className="max-h-32 w-auto object-cover rounded border"
+                          />
+                        )}
+                        <div className="flex flex-col gap-2">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setSiteCoverFile(e.target.files?.[0] ?? null)}
+                            className="max-w-xs"
+                          />
+                          <Button
+                            size="sm"
+                            disabled={!siteCoverFile}
+                            onClick={() => siteCoverFile && saveSiteAsset('hero_cover', siteCoverFile)}
+                          >
+                            {isSavingSiteAsset === 'hero_cover' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                            {isSavingSiteAsset === 'hero_cover' ? '上傳中...' : '上傳封面'}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 全站區塊內容 */}
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium">全站區塊文案</h3>
+                      <p className="text-xs text-muted-foreground">此欄顯示區塊文字摘要；點擊「編輯」可修改該區塊內容（如 hero 標題、導覽項目、Footer 等）</p>
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>頁面</TableHead>
+                              <TableHead>區塊</TableHead>
+                              <TableHead className="max-w-[200px]">內容預覽</TableHead>
+                              <TableHead>操作</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {siteContent.map((row) => (
+                              <TableRow key={row.id}>
+                                <TableCell className="font-mono text-sm">{row.page_key}</TableCell>
+                                <TableCell className="font-mono text-sm">{row.block_key}</TableCell>
+                                <TableCell className="text-xs text-muted-foreground truncate max-w-[200px]" title={contentToPreviewText(row.content)}>
+                                  {contentToPreviewText(row.content)}
+                                </TableCell>
+                                <TableCell>
+                                  <Button variant="ghost" size="sm" onClick={() => openContentEdit(row)}>
+                                    <Edit2 className="w-4 h-4" />
+                                    編輯
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </TabsContent>
         </Tabs>
       </main>
+
+      {/* 全站區塊編輯 Dialog */}
+      <Dialog open={!!editingContentId} onOpenChange={(open) => !open && setEditingContentId(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>編輯區塊內容（JSON）</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              value={editingContentJson}
+              onChange={(e) => setEditingContentJson(e.target.value)}
+              rows={14}
+              className="font-mono text-sm"
+              placeholder='{"key": "value"}'
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setEditingContentId(null)}>取消</Button>
+            <Button onClick={saveSiteContent} disabled={isSavingContent}>
+              {isSavingContent ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              儲存
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Service Dialog */}
       <Dialog open={isServiceDialogOpen} onOpenChange={setIsServiceDialogOpen}>
@@ -2349,18 +2370,19 @@ const Admin = () => {
 
       {/* Announcement Dialog */}
       <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>{editingAnnouncement ? '編輯公告' : '新增公告'}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-4 overflow-y-auto max-h-[60vh]">
+          <div className="space-y-4 pt-4 pb-4 overflow-y-auto overflow-x-hidden min-h-0 flex-1">
             <div className="space-y-2">
               <label className="text-sm font-medium">標題 *</label>
               <Input
                 placeholder="公告標題"
                 value={announcementForm.title}
                 onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                className="w-full min-h-[2.5rem]"
               />
             </div>
 
@@ -2483,93 +2505,6 @@ const Admin = () => {
             <Button onClick={saveAnnouncement}>
               <Save className="w-4 h-4 mr-2" />
               儲存
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Connection Test Dialog */}
-      <Dialog open={showConnectionTest} onOpenChange={setShowConnectionTest}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-primary" />
-              系統連接測試結果
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4 overflow-y-auto max-h-[60vh]">
-            {isTestingConnections ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                <span className="ml-2 text-muted-foreground">正在測試連接...</span>
-              </div>
-            ) : connectionTestResults.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                點擊「檢查連接」按鈕開始測試
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {connectionTestResults.map((result, index) => (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-lg border ${
-                      result.status === 'success'
-                        ? 'bg-green-50 border-green-200'
-                        : result.status === 'warning'
-                        ? 'bg-yellow-50 border-yellow-200'
-                        : 'bg-red-50 border-red-200'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      {result.status === 'success' ? (
-                        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                      ) : result.status === 'warning' ? (
-                        <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                      ) : (
-                        <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                      )}
-                      <div className="flex-1">
-                        <div className="font-medium text-sm mb-1">{result.service}</div>
-                        <div className={`text-sm ${
-                          result.status === 'success'
-                            ? 'text-green-700'
-                            : result.status === 'warning'
-                            ? 'text-yellow-700'
-                            : 'text-red-700'
-                        }`}>
-                          {result.message}
-                        </div>
-                        {result.details && (
-                          <details className="mt-2">
-                            <summary className="text-xs text-muted-foreground cursor-pointer">
-                              查看詳情
-                            </summary>
-                            <pre className="mt-2 text-xs bg-background p-2 rounded overflow-auto max-h-32">
-                              {JSON.stringify(result.details, null, 2)}
-                            </pre>
-                          </details>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-between items-center pt-4 border-t">
-            <div className="text-sm text-muted-foreground">
-              {connectionTestResults.length > 0 && (
-                <>
-                  成功: {connectionTestResults.filter(r => r.status === 'success').length} | 
-                  警告: {connectionTestResults.filter(r => r.status === 'warning').length} | 
-                  錯誤: {connectionTestResults.filter(r => r.status === 'error').length}
-                </>
-              )}
-            </div>
-            <Button variant="outline" onClick={() => setShowConnectionTest(false)}>
-              關閉
             </Button>
           </div>
         </DialogContent>

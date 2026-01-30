@@ -8,15 +8,22 @@ interface AdminGuardProps {
   children: ReactNode;
 }
 
+const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === "true";
+
 const AdminGuard = ({ children }: AdminGuardProps) => {
   const navigate = useNavigate();
   const { user, isAdmin, isLoading } = useAuth();
 
   useEffect(() => {
+    if (SKIP_AUTH) return;
     if (!isLoading && !user) {
       navigate("/auth");
     }
   }, [user, isLoading, navigate]);
+
+  if (SKIP_AUTH) {
+    return <>{children}</>;
+  }
 
   if (isLoading) {
     return (
