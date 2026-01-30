@@ -13,7 +13,6 @@ import {
   ADMIN_LEADS_401_MESSAGE,
   fetchServices as apiFetchServices,
   fetchStores as apiFetchStores,
-  fetchServices as apiFetchServices,
   fetchSiteAssets as apiFetchSiteAssets,
   fetchSiteContent as apiFetchSiteContent,
   updateSiteAsset,

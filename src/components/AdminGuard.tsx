@@ -8,7 +8,8 @@ interface AdminGuardProps {
   children: ReactNode;
 }
 
-const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === "true";
+// 不顯示登入介面，直接可進後台與 CRM（若要恢復登入，改為 false 並設 VITE_SKIP_AUTH）
+const SKIP_AUTH = true;
 
 const AdminGuard = ({ children }: AdminGuardProps) => {
   const navigate = useNavigate();
