@@ -25,3 +25,6 @@ dist-ssr
 .vercel
 .env
 .env*.local
+
+# Bun lockfile — 避免 Cloudflare Pages 用 Bun 安裝（其 Bun 版本與本地 lockfile 不相容），改由 npm + package-lock.json 建置
+bun.lockb

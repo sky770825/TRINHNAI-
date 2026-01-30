@@ -8,7 +8,13 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check": "npm run build",
+    "supabase:link": "npx supabase link",
+    "supabase:status": "npx supabase status",
+    "supabase:db-push": "npx supabase db push",
+    "supabase:functions-deploy": "npx supabase functions deploy",
+    "release": "npm run check && echo '✅ Build OK. 請 push 到 Git 或於 Cloudflare 手動觸發部署。'"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
