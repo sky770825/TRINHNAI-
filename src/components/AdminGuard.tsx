@@ -17,7 +17,7 @@ const AdminGuard = ({ children }: AdminGuardProps) => {
   useEffect(() => {
     if (SKIP_AUTH) return;
     if (!isLoading && !user) {
-      navigate("/auth");
+      navigate("/");
     }
   }, [user, isLoading, navigate]);
 
@@ -37,7 +37,7 @@ const AdminGuard = ({ children }: AdminGuardProps) => {
   }
 
   if (!user) {
-    return null; // Will redirect to /auth
+    return null; // Will redirect to /
   }
 
   if (!isAdmin) {
@@ -55,12 +55,9 @@ const AdminGuard = ({ children }: AdminGuardProps) => {
             <br />
             請聯繫管理員取得權限。
           </p>
-          <div className="flex gap-3 justify-center">
+          <div className="flex justify-center">
             <Button variant="outline" onClick={() => navigate("/")}>
               返回首頁
-            </Button>
-            <Button onClick={() => navigate("/auth")}>
-              切換帳號
             </Button>
           </div>
         </div>

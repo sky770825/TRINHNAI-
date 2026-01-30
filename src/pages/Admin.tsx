@@ -298,7 +298,7 @@ const Admin = () => {
 
   const handleLogout = async () => {
     await signOut();
-    navigate("/auth");
+    navigate("/");
   };
 
   const refreshData = async () => {
