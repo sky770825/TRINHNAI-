@@ -10,7 +10,9 @@ import { BRAND_COLOR, SALON_NAME } from './salonConfig.ts';
 const BRAND = Deno.env.get('BRAND_COLOR') ?? BRAND_COLOR;
 const WHITE = '#ffffff';
 const LIFF_URL    = Deno.env.get('LIFF_URL')    ?? 'https://liff.line.me/';
-const BOOKING_URL = Deno.env.get('BOOKING_URL') ?? 'https://example.com';
+const BOOKING_URL = (Deno.env.get('BOOKING_URL') ?? 'https://trinhnai-342f2e80.vercel.app').replace(/\/$/, '');
+const NAIL_STYLE_IMAGE = `${BOOKING_URL}/line/nail-style.jpg`;
+const LASH_STYLE_IMAGE = `${BOOKING_URL}/line/lash-style.jpg`;
 
 // ── 歡迎選單 ──────────────────────────────────────────────────
 export function welcomeBubble() {
@@ -116,6 +118,132 @@ export function serviceCarousel() {
           action: { type: 'uri', label: '或 開啟線上預約表單 →', uri: `${BOOKING_URL}/?booking=liff` },
         }],
       },
+    },
+  };
+}
+
+type StyleCard = {
+  title: string;
+  subtitle: string;
+  points: string[];
+  imageUrl: string;
+  accent: string;
+};
+
+function styleCardBubble(card: StyleCard, reserveText: string) {
+  return {
+    type: 'bubble',
+    size: 'kilo',
+    hero: {
+      type: 'image',
+      url: card.imageUrl,
+      size: 'full',
+      aspectRatio: '20:13',
+      aspectMode: 'cover',
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      paddingAll: '16px',
+      contents: [
+        { type: 'text', text: card.title, weight: 'bold', size: 'md', color: '#2f2428', wrap: true },
+        { type: 'text', text: card.subtitle, size: 'xs', color: card.accent, wrap: true },
+        { type: 'separator', margin: 'md', color: '#f3dde5' },
+        ...card.points.map((point) => ({
+          type: 'text',
+          text: `・${point}`,
+          size: 'xs',
+          color: '#7a6870',
+          wrap: true,
+          margin: 'sm',
+        })),
+      ],
+    },
+    footer: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      paddingAll: '14px',
+      contents: [
+        {
+          type: 'button',
+          style: 'primary',
+          color: BRAND,
+          height: 'sm',
+          action: { type: 'message', label: '立即預約', text: reserveText },
+        },
+      ],
+    },
+  };
+}
+
+export function nailStyleGalleryFlex() {
+  const cards: StyleCard[] = [
+    {
+      title: '奶茶裸粉光療',
+      subtitle: '乾淨氣質｜上班日常',
+      points: ['自然修飾手型', '低調耐看，不挑穿搭', '適合第一次做光療的客人'],
+      imageUrl: NAIL_STYLE_IMAGE,
+      accent: '#C9748B',
+    },
+    {
+      title: '法式微鑽設計',
+      subtitle: '約會聚會｜精緻亮點',
+      points: ['法式線條拉長指尖', '微鑽點綴不浮誇', '適合想要有細節但不太高調'],
+      imageUrl: NAIL_STYLE_IMAGE,
+      accent: '#B86C84',
+    },
+    {
+      title: '手繪主題款',
+      subtitle: '客製設計｜節慶造型',
+      points: ['可依照片或色系溝通', '適合婚禮、旅行、生日', '建議提前預約預留設計時間'],
+      imageUrl: NAIL_STYLE_IMAGE,
+      accent: '#A85F78',
+    },
+  ];
+
+  return {
+    type: 'flex',
+    altText: 'Trinh Nail 美甲作品款式',
+    contents: {
+      type: 'carousel',
+      contents: cards.map((card) => styleCardBubble(card, '立即預約')),
+    },
+  };
+}
+
+export function lashStyleGalleryFlex() {
+  const cards: StyleCard[] = [
+    {
+      title: '自然經典款',
+      subtitle: '日常裸妝｜清透眼神',
+      points: ['放大眼神但保留自然感', '適合上班、學生與淡妝客', '維持度依原生睫毛狀況調整'],
+      imageUrl: LASH_STYLE_IMAGE,
+      accent: '#6B7AA8',
+    },
+    {
+      title: '微濃感層次款',
+      subtitle: '拍照聚會｜柔霧妝感',
+      points: ['比自然款更有存在感', '適合想省眼妝時間的客人', '可依眼型調整長度與捲度'],
+      imageUrl: LASH_STYLE_IMAGE,
+      accent: '#5E6E9C',
+    },
+    {
+      title: '泰式設計款',
+      subtitle: '束感分明｜精緻混血感',
+      points: ['線條感更明顯', '適合喜歡立體妝感', '施作前會評估原生睫毛承重'],
+      imageUrl: LASH_STYLE_IMAGE,
+      accent: '#52618F',
+    },
+  ];
+
+  return {
+    type: 'flex',
+    altText: 'Trinh Nail 美睫作品款式',
+    contents: {
+      type: 'carousel',
+      contents: cards.map((card) => styleCardBubble(card, '立即預約')),
     },
   };
 }

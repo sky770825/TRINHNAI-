@@ -14,6 +14,7 @@ import {
   welcomeBubble, serviceCarousel, storeSelectionFlex,
   dateSelectionFlex, timeSelectionFlex,
   confirmBookingFlex, bookingSuccessFlex, storeInfoBubble, adminBookingFlex,
+  nailStyleGalleryFlex, lashStyleGalleryFlex,
 } from '../_shared/flexMessages.ts';
 import { checkSlotAvailable, getAvailableSlots } from '../_shared/slots.ts';
 
@@ -436,15 +437,11 @@ async function clearState(sb: any, userId: string) {
 
 function getKeywordReply(text: string): object[] | null {
   if (['美甲款式', '美甲', '指甲款式', '指甲', '凝膠款式', '凝膠'].some(k => text.includes(k))) {
-    return [textMsg(
-      '美甲款式可依日常、約會、婚禮與節慶做客製設計。\n\n常見項目：\n・手部素色光療\n・手部設計款\n・凝膠延甲\n・足部光療與深層保養\n\n想直接排時間，請點「立即預約」或輸入「預約」。'
-    )];
+    return [nailStyleGalleryFlex()];
   }
 
   if (['美睫款式', '睫毛款式', '美睫'].some(k => text.includes(k))) {
-    return [textMsg(
-      '美睫款式會依眼型、原生睫毛條件與妝感需求調整。\n\n常見項目：\n・自然經典款\n・3D 層次款\n・泰式設計款\n・微濃感款式\n\n想安排諮詢與施作，請點「立即預約」或輸入「預約」。'
-    )];
+    return [lashStyleGalleryFlex()];
   }
 
   if (['最新優惠', '優惠', '活動'].some(k => text.includes(k))) {
