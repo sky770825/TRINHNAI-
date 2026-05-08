@@ -5,6 +5,7 @@ import { BrandSection } from "@/components/sections/BrandSection";
 import { ServicesSection } from "@/components/sections/ServicesSection";
 import { GallerySection } from "@/components/sections/GallerySection";
 import { PromotionsSection } from "@/components/sections/PromotionsSection";
+import { ProcessSection } from "@/components/sections/ProcessSection";
 import { LeadCaptureSection } from "@/components/sections/LeadCaptureSection";
 import { FAQSection } from "@/components/sections/FAQSection";
 import { Footer } from "@/components/sections/Footer";
@@ -47,6 +48,8 @@ const Index = () => {
         <div id="about">
           <BrandSection />
         </div>
+
+        <ProcessSection />
         
         <div id="gallery">
           <GallerySection />

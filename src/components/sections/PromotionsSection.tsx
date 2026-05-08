@@ -28,28 +28,30 @@ export const PromotionsSection = ({ onBookingClick }: PromotionsSectionProps) =>
   const { t } = useLanguage();
 
   return (
-    <section className="py-24 bg-background relative overflow-hidden">
-      {/* Decorative Elements */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
-
+    <section className="relative overflow-hidden bg-background py-24">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
       <div className="container mx-auto px-6 relative">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-12"
+          className="mb-12 grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-end"
         >
-          <span className="inline-block bg-primary/10 text-primary px-4 py-1 rounded-full text-sm font-medium mb-4">
-            {t("promo.title")}
-          </span>
-          <h2 className="font-display text-4xl md:text-5xl font-medium text-foreground">
-            {t("promo.subtitle")}
-          </h2>
+          <div>
+            <span className="inline-block rounded-full bg-primary/10 px-4 py-1 text-sm font-medium text-primary">
+              {t("promo.title")}
+            </span>
+            <h2 className="mt-5 text-balance font-display text-4xl font-medium leading-tight text-foreground md:text-6xl">
+              {t("promo.subtitle")}
+            </h2>
+          </div>
+          <p className="max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
+            優惠不只寫在公告裡，預約時會一起帶入服務紀錄，門市現場更好確認。
+          </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
+        <div className="mb-12 grid gap-5 md:grid-cols-3">
           {promotionsList.map((promo, index) => (
             <motion.div
               key={promo.titleKey}
@@ -57,17 +59,19 @@ export const PromotionsSection = ({ onBookingClick }: PromotionsSectionProps) =>
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="gradient-card rounded-2xl p-8 shadow-card hover:shadow-elevated transition-all duration-300 text-center relative overflow-hidden"
+              className="relative overflow-hidden rounded-[1.35rem] border border-primary/10 bg-[#fffaf6] p-7 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-elevated"
             >
-              <div className="absolute inset-0 bg-gradient-to-br opacity-50" style={{
-                background: `linear-gradient(135deg, hsl(var(--primary) / 0.05) 0%, hsl(var(--accent) / 0.1) 100%)`
-              }} />
-              <div className="relative">
-                <span className="text-5xl mb-4 block">{promo.emoji}</span>
-                <h3 className="font-display text-2xl font-medium text-foreground mb-2">
+              <div className="absolute right-5 top-5 font-display text-5xl text-primary/10">
+                {String(index + 1).padStart(2, "0")}
+              </div>
+              <div className="relative flex h-full flex-col">
+                <span className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f3e7df] text-3xl">
+                  {promo.emoji}
+                </span>
+                <h3 className="mb-3 font-display text-2xl font-medium text-foreground">
                   {t(promo.titleKey)}
                 </h3>
-                <p className="text-muted-foreground leading-relaxed">
+                <p className="text-pretty leading-relaxed text-muted-foreground">
                   {t(promo.descKey)}
                 </p>
               </div>

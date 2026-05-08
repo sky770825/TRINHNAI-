@@ -126,6 +126,10 @@
     font-family: var(--font-body);
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   h1, h2, h3, h4 {
     font-family: var(--font-display);
   }
@@ -170,6 +174,17 @@
 
   .text-balance {
     text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  .hero-grain {
+    background-image:
+      linear-gradient(115deg, hsl(30 30% 98% / 0.08) 0%, transparent 38%, hsl(25 45% 55% / 0.08) 100%),
+      repeating-linear-gradient(0deg, hsl(0 0% 100% / 0.035) 0, hsl(0 0% 100% / 0.035) 1px, transparent 1px, transparent 5px);
+    mix-blend-mode: soft-light;
   }
 
   /* Marble texture effect */

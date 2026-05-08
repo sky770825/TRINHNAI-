@@ -30,7 +30,7 @@ export const Header = ({ onBookingClick }: HeaderProps) => {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
-      <div className="bg-background/80 backdrop-blur-md border-b border-border/50">
+      <div className="border-b border-white/40 bg-[#fffaf6]/82 shadow-[0_10px_40px_rgba(45,28,24,0.06)] backdrop-blur-xl">
         <div className="container mx-auto px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
@@ -39,12 +39,12 @@ export const Header = ({ onBookingClick }: HeaderProps) => {
             </a>
 
             {/* Desktop Nav */}
-            <nav className="hidden md:flex items-center gap-8">
+            <nav className="hidden items-center gap-1 rounded-full border border-primary/10 bg-white/58 p-1 shadow-soft md:flex">
               {navLinks.map((link) => (
                 <button
                   key={link.href}
                   onClick={() => scrollToSection(link.href)}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="rounded-full px-4 py-2 text-sm text-muted-foreground transition-all duration-300 hover:bg-[#f4e9e2] hover:text-foreground"
                 >
                   {link.label}
                 </button>
@@ -83,7 +83,7 @@ export const Header = ({ onBookingClick }: HeaderProps) => {
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
           exit={{ opacity: 0, height: 0 }}
-          className="md:hidden bg-background border-b border-border"
+          className="border-b border-primary/10 bg-[#fffaf6] shadow-card md:hidden"
         >
           <div className="container mx-auto px-6 py-4 space-y-2">
             {navLinks.map((link) => (
