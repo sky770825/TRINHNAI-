@@ -32,6 +32,22 @@ interface PublicBookingResponse {
   code?: string;
   bookingId?: string;
   availableSlots?: string[];
+  bookings?: PublicBookingLookup[];
+}
+
+export interface PublicBookingLookup {
+  id: string;
+  source: "website" | "line";
+  name: string;
+  phone: string;
+  store: string;
+  storeLabel: string;
+  service: string;
+  serviceLabel: string;
+  bookingDate: string;
+  bookingTime: string;
+  status: string;
+  createdAt: string;
 }
 
 export function getTaipeiDateInputValue(date = new Date()) {
@@ -81,6 +97,22 @@ export async function createPublicBooking(input: PublicBookingInput): Promise<st
   if (error) throw error;
   if (!data?.success) throw new Error(data?.error || "預約建立失敗");
   return data.bookingId;
+}
+
+export async function lookupPublicBookings(phone: string): Promise<PublicBookingLookup[]> {
+  const { data, error } = await supabase.functions.invoke<PublicBookingResponse>(
+    "trinh-public-booking",
+    {
+      body: {
+        action: "lookupBookings",
+        phone,
+      },
+    },
+  );
+
+  if (error) throw error;
+  if (!data?.success) throw new Error(data?.error || "無法查詢預約資料");
+  return data.bookings ?? [];
 }
 
 export async function sendBookingConfirmationEmail(input: PublicBookingInput) {

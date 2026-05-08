@@ -18,6 +18,7 @@ const translations: Record<Language, Record<string, string>> = {
     "nav.about": "關於我們",
     "nav.gallery": "作品展示",
     "nav.faq": "常見問題",
+    "nav.member": "會員專區",
     "nav.booking": "立即預約",
 
     // Hero
@@ -262,6 +263,7 @@ const translations: Record<Language, Record<string, string>> = {
     "nav.about": "About Us",
     "nav.gallery": "Gallery",
     "nav.faq": "FAQ",
+    "nav.member": "Member",
     "nav.booking": "Book Now",
 
     // Hero
@@ -506,6 +508,7 @@ const translations: Record<Language, Record<string, string>> = {
     "nav.about": "Về chúng tôi",
     "nav.gallery": "Bộ sưu tập",
     "nav.faq": "Câu hỏi thường gặp",
+    "nav.member": "Thành viên",
     "nav.booking": "Đặt lịch ngay",
 
     // Hero

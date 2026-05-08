@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 const Index = lazy(() => import("./pages/Index"));
 const Admin = lazy(() => import("./pages/Admin"));
 const CRM = lazy(() => import("./pages/CRM"));
+const Member = lazy(() => import("./pages/Member"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // 載入中組件
@@ -35,6 +36,7 @@ const App = () => (
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/member" element={<Member />} />
                 <Route path="/auth" element={<Navigate to="/admin" replace />} />
                 <Route
                   path="/admin"

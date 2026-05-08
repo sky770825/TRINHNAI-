@@ -9,6 +9,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { checkSlotAvailable, getAvailableSlots } from '../_shared/slots.ts';
+import { SERVICE_NAMES, STORE_NAMES } from '../_shared/salonConfig.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,7 +27,7 @@ const RATE_LIMIT_MAX = 8;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 type PublicBookingPayload = {
-  action?: 'availableSlots' | 'createBooking';
+  action?: 'availableSlots' | 'createBooking' | 'lookupBookings';
   name?: string;
   email?: string;
   phone?: string;
@@ -36,6 +37,21 @@ type PublicBookingPayload = {
   date?: string;
   time?: string;
   notes?: string;
+};
+
+type LookupBooking = {
+  id: string;
+  source: 'website' | 'line';
+  name: string;
+  phone: string;
+  store: string;
+  storeLabel: string;
+  service: string;
+  serviceLabel: string;
+  bookingDate: string;
+  bookingTime: string;
+  status: string;
+  createdAt: string;
 };
 
 function json(body: Record<string, unknown>, status = 200) {
@@ -76,6 +92,89 @@ function validateCreate(payload: PublicBookingPayload): string | null {
   return null;
 }
 
+function normalizePhone(phone?: string | null): string {
+  const digits = (phone ?? '').replace(/\D/g, '');
+  if (digits.startsWith('886') && digits.length >= 11) return `0${digits.slice(3)}`;
+  if (digits.startsWith('9') && digits.length === 9) return `0${digits}`;
+  return digits;
+}
+
+function validateLookup(payload: PublicBookingPayload): string | null {
+  const normalizedPhone = normalizePhone(payload.phone);
+  if (normalizedPhone.length < 8 || normalizedPhone.length > 15) {
+    return '請輸入有效手機或電話號碼';
+  }
+  return null;
+}
+
+function serviceLabel(service: string): string {
+  if (service === 'waxing') return SERVICE_NAMES.wax ?? '熱蠟除毛';
+  return SERVICE_NAMES[service] ?? service;
+}
+
+function toLookupBooking(row: Record<string, unknown>, source: 'website' | 'line'): LookupBooking {
+  return {
+    id: String(row.id),
+    source,
+    name: String(source === 'line' ? row.user_name || 'LINE 用戶' : row.name || '會員'),
+    phone: String(row.phone ?? ''),
+    store: String(row.store ?? ''),
+    storeLabel: STORE_NAMES[String(row.store ?? '')] ?? String(row.store ?? ''),
+    service: String(row.service ?? ''),
+    serviceLabel: serviceLabel(String(row.service ?? '')),
+    bookingDate: String(row.booking_date ?? ''),
+    bookingTime: String(row.booking_time ?? ''),
+    status: String(row.status ?? 'pending'),
+    createdAt: String(row.created_at ?? ''),
+  };
+}
+
+async function lookupBookings(
+  supabase: any,
+  phone: string,
+): Promise<LookupBooking[]> {
+  const normalizedPhone = normalizePhone(phone);
+  const phoneNeedle = normalizedPhone.slice(-4);
+
+  const websiteQuery = supabase
+    .from('bookings')
+    .select('id, name, phone, store, service, booking_date, booking_time, status, created_at')
+    .ilike('phone', `%${phoneNeedle}%`)
+    .order('booking_date', { ascending: false })
+    .limit(50);
+
+  const lineQuery = supabase
+    .from('line_bookings')
+    .select('id, user_name, phone, store, service, booking_date, booking_time, status, created_at')
+    .ilike('phone', `%${phoneNeedle}%`)
+    .order('booking_date', { ascending: false })
+    .limit(50);
+
+  const [{ data: websiteRows, error: websiteError }, { data: lineRows, error: lineError }] = await Promise.all([
+    websiteQuery,
+    lineQuery,
+  ]);
+
+  if (websiteError && lineError) {
+    console.error('lookup bookings error:', { websiteError, lineError });
+    throw new Error('查詢失敗，請稍後再試');
+  }
+
+  const phoneMatches = (value?: string | null) => normalizePhone(value) === normalizedPhone;
+  const rows = [
+    ...((websiteRows ?? []).filter((row: Record<string, unknown>) => phoneMatches(row.phone as string | null)).map((row: Record<string, unknown>) => toLookupBooking(row, 'website'))),
+    ...((lineRows ?? []).filter((row: Record<string, unknown>) => phoneMatches(row.phone as string | null)).map((row: Record<string, unknown>) => toLookupBooking(row, 'line'))),
+  ];
+
+  return rows
+    .sort((a, b) => {
+      const aKey = `${a.bookingDate}T${a.bookingTime || '00:00'}`;
+      const bKey = `${b.bookingDate}T${b.bookingTime || '00:00'}`;
+      return bKey.localeCompare(aKey);
+    })
+    .slice(0, 20);
+}
+
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = rateLimitMap.get(ip);
@@ -104,6 +203,27 @@ serve(async (req) => {
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
   );
+
+  if (action === 'lookupBookings') {
+    const clientIP =
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      req.headers.get('x-real-ip') ||
+      'unknown';
+    if (!checkRateLimit(clientIP)) {
+      return json({ success: false, error: '查詢次數過多，請稍後再試' }, 429);
+    }
+
+    const validationError = validateLookup(payload);
+    if (validationError) return json({ success: false, error: validationError, bookings: [] });
+
+    try {
+      const bookings = await lookupBookings(supabase, payload.phone!);
+      return json({ success: true, bookings });
+    } catch (error) {
+      console.error('lookup bookings exception:', error);
+      return json({ success: false, error: '查詢失敗，請稍後再試', bookings: [] }, 500);
+    }
+  }
 
   if (action === 'availableSlots') {
     const baseError = validateBase(payload);

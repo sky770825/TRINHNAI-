@@ -72,7 +72,7 @@ export const Footer = () => {
                 <MapPin className="w-5 h-5 text-cream/50 flex-shrink-0 mt-0.5" />
                 <div className="text-cream/70">
                   <a
-                    href="https://maps.app.goo.gl/iLW9MVSyEXH7u61G8"
+                    href="https://www.google.com/maps/search/?api=1&query=Trinh+Nail+%E4%B8%AD%E5%A3%A2%E5%85%83%E5%8C%96%E5%BA%97+%E4%B8%AD%E5%A3%A2%E5%8D%80%E5%85%83%E5%8C%96%E8%B7%AF"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-medium text-cream hover:text-cream/80 transition-colors inline-flex items-center gap-2 group"
@@ -81,9 +81,9 @@ export const Footer = () => {
                     <ExternalLink className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" />
                   </a>
                   <div className="mt-1 space-y-1">
-                    <p className="text-sm whitespace-pre-line">桃園市中壢區元化路40號</p>
+                    <p className="text-sm whitespace-pre-line">中壢區元化路（前站）</p>
                     <a
-                      href="https://maps.app.goo.gl/iLW9MVSyEXH7u61G8"
+                      href="https://www.google.com/maps/search/?api=1&query=Trinh+Nail+%E4%B8%AD%E5%A3%A2%E5%85%83%E5%8C%96%E5%BA%97+%E4%B8%AD%E5%A3%A2%E5%8D%80%E5%85%83%E5%8C%96%E8%B7%AF"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-cream/60 hover:text-cream/80 transition-colors inline-flex items-center gap-1 underline underline-offset-2"
@@ -97,7 +97,27 @@ export const Footer = () => {
               <div className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 text-cream/50 flex-shrink-0 mt-0.5" />
                 <div className="text-cream/70">
-                  <p className="font-medium text-cream mb-1">{t("footer.location2")}</p>
+                  <a
+                    href="https://www.google.com/maps/search/?api=1&query=Trinh+Nail+%E4%B8%AD%E5%A3%A2%E5%BF%A0%E7%A6%8F%E5%BA%97+%E4%B8%AD%E5%A3%A2%E5%8D%80%E5%BF%A0%E7%A6%8F%E8%B7%AF"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-cream hover:text-cream/80 transition-colors inline-flex items-center gap-2 group"
+                  >
+                    {t("footer.location2")}
+                    <ExternalLink className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" />
+                  </a>
+                  <div className="mt-1 space-y-1">
+                    <p className="text-sm whitespace-pre-line">中壢區忠福路（黃昏市場對面）</p>
+                    <a
+                      href="https://www.google.com/maps/search/?api=1&query=Trinh+Nail+%E4%B8%AD%E5%A3%A2%E5%BF%A0%E7%A6%8F%E5%BA%97+%E4%B8%AD%E5%A3%A2%E5%8D%80%E5%BF%A0%E7%A6%8F%E8%B7%AF"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-cream/60 hover:text-cream/80 transition-colors inline-flex items-center gap-1 underline underline-offset-2"
+                    >
+                      <Navigation className="w-3 h-3" />
+                      點擊導航
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

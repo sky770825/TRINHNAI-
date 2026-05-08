@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Menu, UserRound, X } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -12,6 +13,8 @@ interface HeaderProps {
 export const Header = ({ onBookingClick }: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const navLinks = [
     { label: t("nav.services"), href: "#services" },
@@ -21,10 +24,22 @@ export const Header = ({ onBookingClick }: HeaderProps) => {
   ];
 
   const scrollToSection = (href: string) => {
-    const element = document.querySelector(href);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth" });
+    const scroll = () => {
+      const element = document.querySelector(href);
+      if (element) element.scrollIntoView({ behavior: "smooth" });
+    };
+
+    if (location.pathname !== "/") {
+      navigate("/");
+      window.setTimeout(scroll, 80);
+    } else {
+      scroll();
     }
+    setIsMobileMenuOpen(false);
+  };
+
+  const openMember = () => {
+    navigate("/member");
     setIsMobileMenuOpen(false);
   };
 
@@ -34,9 +49,13 @@ export const Header = ({ onBookingClick }: HeaderProps) => {
         <div className="container mx-auto px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <a href="/" className="font-display text-2xl font-medium text-foreground italic">
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="font-display text-2xl font-medium italic text-foreground"
+            >
               Trinhnai
-            </a>
+            </button>
 
             {/* Desktop Nav */}
             <nav className="hidden items-center gap-1 rounded-full border border-primary/10 bg-white/58 p-1 shadow-soft md:flex">
@@ -54,6 +73,14 @@ export const Header = ({ onBookingClick }: HeaderProps) => {
             {/* Desktop CTA & Language */}
             <div className="hidden md:flex items-center gap-4">
               <LanguageSwitcher />
+              <Button
+                variant={location.pathname === "/member" ? "secondary" : "outline"}
+                size="sm"
+                onClick={openMember}
+              >
+                <UserRound className="h-4 w-4" />
+                {t("nav.member")}
+              </Button>
               <Button variant="default" onClick={onBookingClick}>
                 {t("nav.booking")}
               </Button>
@@ -95,6 +122,13 @@ export const Header = ({ onBookingClick }: HeaderProps) => {
                 {link.label}
               </button>
             ))}
+            <button
+              onClick={openMember}
+              className="flex w-full items-center gap-2 py-3 text-left text-foreground transition-colors hover:text-primary"
+            >
+              <UserRound className="h-4 w-4" />
+              {t("nav.member")}
+            </button>
             <Button
               variant="hero"
               className="w-full mt-4"
