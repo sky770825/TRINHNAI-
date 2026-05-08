@@ -63,13 +63,13 @@ export const BrandSection = () => {
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-primary/15 bg-white p-5 shadow-soft">
                 <MapPin className="h-5 w-5 text-primary" />
-                <p className="mt-4 font-semibold text-foreground">元化店</p>
-                <p className="mt-1 text-sm text-muted-foreground">中壢區元化路 40 號</p>
+                <p className="mt-4 font-semibold text-foreground">中壢元化店（前站）</p>
+                <p className="mt-1 text-sm text-muted-foreground">中壢區元化路（前站）</p>
               </div>
               <div className="rounded-2xl border border-[#506c5c]/20 bg-[#edf3ee] p-5 shadow-soft">
                 <MapPin className="h-5 w-5 text-[#506c5c]" />
-                <p className="mt-4 font-semibold text-foreground">忠福店</p>
-                <p className="mt-1 text-sm text-muted-foreground">中壢區福州一街 262 號</p>
+                <p className="mt-4 font-semibold text-foreground">中壢忠福店</p>
+                <p className="mt-1 text-sm text-muted-foreground">中壢區忠福路（黃昏市場對面）</p>
               </div>
             </div>
           </div>

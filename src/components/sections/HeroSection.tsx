@@ -108,9 +108,9 @@ export const HeroSection = ({ onBookingClick }: HeroSectionProps) => {
                   initial={{ opacity: 0, y: 18 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.55 + index * 0.08 }}
-                  className="rounded-2xl border border-white/18 bg-white/12 px-4 py-3 text-primary-foreground backdrop-blur-md"
+                  className="rounded-lg border border-white/28 bg-black/24 px-4 py-3 text-white shadow-[0_12px_28px_rgba(20,12,10,0.16)] backdrop-blur-md"
                 >
-                  <p className="text-xs text-primary-foreground/65">{item.label}</p>
+                  <p className="text-xs text-white/72">{item.label}</p>
                   <p className="mt-1 text-sm font-semibold">{item.value}</p>
                 </motion.div>
               ))}
@@ -131,7 +131,7 @@ export const HeroSection = ({ onBookingClick }: HeroSectionProps) => {
                     今日可預約
                   </h2>
                 </div>
-                <div className="rounded-full bg-[#263c32] px-3 py-1 text-xs font-semibold text-white">
+                <div className="rounded-md bg-[#263c32] px-3 py-1 text-xs font-semibold text-white">
                   2 間店
                 </div>
               </div>
@@ -140,15 +140,15 @@ export const HeroSection = ({ onBookingClick }: HeroSectionProps) => {
                 <div className="flex items-start gap-3 rounded-2xl bg-white p-4 shadow-soft">
                   <MapPin className="mt-0.5 h-5 w-5 text-primary" />
                   <div>
-                    <p className="font-semibold text-foreground">元化店</p>
-                    <p className="text-sm text-muted-foreground">中壢區元化路 40 號</p>
+                    <p className="font-semibold text-foreground">中壢元化店（前站）</p>
+                    <p className="text-sm text-muted-foreground">中壢區元化路（前站）</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 rounded-2xl bg-white p-4 shadow-soft">
                   <MapPin className="mt-0.5 h-5 w-5 text-primary" />
                   <div>
-                    <p className="font-semibold text-foreground">忠福店</p>
-                    <p className="text-sm text-muted-foreground">福州一街 262 號</p>
+                    <p className="font-semibold text-foreground">中壢忠福店</p>
+                    <p className="text-sm text-muted-foreground">中壢區忠福路（黃昏市場對面）</p>
                   </div>
                 </div>
               </div>

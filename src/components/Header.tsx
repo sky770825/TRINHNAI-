@@ -18,8 +18,8 @@ export const Header = ({ onBookingClick }: HeaderProps) => {
 
   const navLinks = [
     { label: t("nav.services"), href: "#services" },
-    { label: t("nav.about"), href: "#about" },
     { label: t("nav.gallery"), href: "#gallery" },
+    { label: t("nav.stores"), href: "#stores" },
     { label: t("nav.faq"), href: "#faq" },
   ];
 
@@ -45,25 +45,25 @@ export const Header = ({ onBookingClick }: HeaderProps) => {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
-      <div className="border-b border-white/40 bg-[#fffaf6]/82 shadow-[0_10px_40px_rgba(45,28,24,0.06)] backdrop-blur-xl">
+      <div className="border-b border-[#eadbd0] bg-[#fffaf6] shadow-[0_10px_40px_rgba(45,28,24,0.08)]">
         <div className="container mx-auto px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="font-display text-2xl font-medium italic text-foreground"
+              className="font-display text-2xl font-medium italic text-[#241814]"
             >
               Trinhnai
             </button>
 
             {/* Desktop Nav */}
-            <nav className="hidden items-center gap-1 rounded-full border border-primary/10 bg-white/58 p-1 shadow-soft md:flex">
+            <nav className="hidden items-center gap-1 rounded-lg border border-primary/15 bg-white p-1 shadow-soft md:flex">
               {navLinks.map((link) => (
                 <button
                   key={link.href}
                   onClick={() => scrollToSection(link.href)}
-                  className="rounded-full px-4 py-2 text-sm text-muted-foreground transition-all duration-300 hover:bg-[#f4e9e2] hover:text-foreground"
+                  className="rounded-md px-4 py-2 text-sm font-semibold text-[#4a332b] transition-all duration-300 hover:bg-[#f4e9e2] hover:text-[#241814]"
                 >
                   {link.label}
                 </button>

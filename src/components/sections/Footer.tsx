@@ -5,7 +5,7 @@ export const Footer = () => {
   const { t } = useLanguage();
 
   return (
-    <footer className="bg-mocha text-cream py-16">
+    <footer className="bg-[#2d211d] py-16 text-[#fff7ef]">
       <div className="container mx-auto px-6">
         <div className="grid md:grid-cols-4 gap-10 mb-12">
           {/* Brand */}
@@ -21,7 +21,8 @@ export const Footer = () => {
                 href="https://www.instagram.com/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-cream/10 flex items-center justify-center hover:bg-cream/20 transition-colors"
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 transition-colors hover:bg-white/18"
+                aria-label="Instagram"
               >
                 <Instagram className="w-5 h-5" />
               </a>
@@ -29,7 +30,8 @@ export const Footer = () => {
                 href="https://www.facebook.com/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-cream/10 flex items-center justify-center hover:bg-cream/20 transition-colors"
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 transition-colors hover:bg-white/18"
+                aria-label="Facebook"
               >
                 <Facebook className="w-5 h-5" />
               </a>
@@ -136,16 +138,16 @@ export const Footer = () => {
         </div>
 
         {/* Bottom */}
-        <div className="border-t border-cream/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-cream/50 text-sm">
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 md:flex-row">
+          <p className="text-sm text-white/52">
             {t("footer.copyright")}
           </p>
-          <div className="flex gap-6 text-sm text-cream/50">
-            <a href="#" className="hover:text-cream transition-colors">
-              Privacy Policy
+          <div className="flex flex-wrap justify-center gap-3 text-sm">
+            <a href="#/member" className="rounded-md bg-white/10 px-4 py-2 text-white/78 transition-colors hover:bg-white/16 hover:text-white">
+              會員查詢
             </a>
-            <a href="#" className="hover:text-cream transition-colors">
-              Terms of Service
+            <a href="https://line.me/R/ti/p/@355uniyb" target="_blank" rel="noopener noreferrer" className="rounded-md bg-white/10 px-4 py-2 text-white/78 transition-colors hover:bg-white/16 hover:text-white">
+              LINE 諮詢
             </a>
           </div>
         </div>
