@@ -417,7 +417,7 @@ async function clearState(sb: any, userId: string) {
 }
 
 function getKeywordReply(text: string): object[] | null {
-  if (['美甲款式', '指甲款式', '凝膠款式'].some(k => text.includes(k))) {
+  if (['美甲款式', '美甲', '指甲款式', '指甲', '凝膠款式', '凝膠'].some(k => text.includes(k))) {
     return [textMsg(
       '美甲款式可依日常、約會、婚禮與節慶做客製設計。\n\n常見項目：\n・手部素色光療\n・手部設計款\n・凝膠延甲\n・足部光療與深層保養\n\n想直接排時間，請點「立即預約」或輸入「預約」。'
     )];
