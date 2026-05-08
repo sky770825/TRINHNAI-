@@ -248,6 +248,125 @@ export function lashStyleGalleryFlex() {
   };
 }
 
+type PromoCard = {
+  title: string;
+  badge: string;
+  value: string;
+  description: string;
+  details: string[];
+  color: string;
+  bg: string;
+};
+
+function promoCardBubble(card: PromoCard) {
+  return {
+    type: 'bubble',
+    size: 'kilo',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: '18px',
+      backgroundColor: card.color,
+      contents: [
+        {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#ffffff22',
+          cornerRadius: '999px',
+          paddingTop: '4px',
+          paddingBottom: '4px',
+          paddingStart: '10px',
+          paddingEnd: '10px',
+          contents: [{ type: 'text', text: card.badge, size: 'xxs', color: WHITE, weight: 'bold' }],
+        },
+        { type: 'text', text: card.title, weight: 'bold', size: 'xl', color: WHITE, margin: 'md', wrap: true },
+        { type: 'text', text: card.value, weight: 'bold', size: 'xxl', color: WHITE, margin: 'sm', wrap: true },
+      ],
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      paddingAll: '16px',
+      backgroundColor: card.bg,
+      contents: [
+        { type: 'text', text: card.description, size: 'sm', color: '#3a2f34', wrap: true },
+        { type: 'separator', margin: 'md', color: '#ead8df' },
+        ...card.details.map((detail) => ({
+          type: 'text',
+          text: `・${detail}`,
+          size: 'xs',
+          color: '#6f5f66',
+          wrap: true,
+          margin: 'sm',
+        })),
+      ],
+    },
+    footer: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      paddingAll: '14px',
+      contents: [
+        {
+          type: 'button',
+          style: 'primary',
+          color: card.color,
+          height: 'sm',
+          action: { type: 'message', label: '立即預約', text: '立即預約' },
+        },
+        {
+          type: 'button',
+          style: 'link',
+          height: 'sm',
+          action: { type: 'message', label: '詢問優惠細節', text: '最新優惠' },
+        },
+      ],
+    },
+  };
+}
+
+export function latestPromoGalleryFlex() {
+  const cards: PromoCard[] = [
+    {
+      title: '當月壽星禮',
+      badge: '生日限定',
+      value: '指定服務 85 折',
+      description: '當月壽星預約美甲、美睫或保養服務，可享專屬生日優惠。',
+      details: ['現場出示證件即可使用', '建議預約時先備註壽星優惠', '優惠以門市確認為準'],
+      color: '#C9748B',
+      bg: '#FFF7FA',
+    },
+    {
+      title: '五星好評回饋',
+      badge: '回訪推薦',
+      value: '本次或下次 95 折',
+      description: '完成服務後留下五星好評，感謝妳把美麗體驗分享出去。',
+      details: ['適合回訪客與新客推薦', '可搭配預約確認時詢問', '不可與部分專案重複折抵'],
+      color: '#A86F7F',
+      bg: '#FFF9F7',
+    },
+    {
+      title: '足部光療保養組',
+      badge: '人氣組合',
+      value: '足部光療 + 深層保養 9 折',
+      description: '一次完成足部美型與保養，適合旅行、涼鞋季與日常維護。',
+      details: ['建議預留較完整施作時間', '可依膚況調整保養流程', '兩間門市皆可預約'],
+      color: '#8F728A',
+      bg: '#F9F7FF',
+    },
+  ];
+
+  return {
+    type: 'flex',
+    altText: 'Trinh Nail 最新優惠活動',
+    contents: {
+      type: 'carousel',
+      contents: cards.map(promoCardBubble),
+    },
+  };
+}
+
 // ── 門市選擇 ──────────────────────────────────────────────────
 export function storeSelectionFlex(serviceName: string) {
   return {

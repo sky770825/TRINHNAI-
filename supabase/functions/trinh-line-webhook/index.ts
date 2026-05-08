@@ -14,7 +14,7 @@ import {
   welcomeBubble, serviceCarousel, storeSelectionFlex,
   dateSelectionFlex, timeSelectionFlex,
   confirmBookingFlex, bookingSuccessFlex, storeInfoBubble, adminBookingFlex,
-  nailStyleGalleryFlex, lashStyleGalleryFlex,
+  nailStyleGalleryFlex, lashStyleGalleryFlex, latestPromoGalleryFlex,
 } from '../_shared/flexMessages.ts';
 import { checkSlotAvailable, getAvailableSlots } from '../_shared/slots.ts';
 
@@ -445,9 +445,7 @@ function getKeywordReply(text: string): object[] | null {
   }
 
   if (['最新優惠', '優惠', '活動'].some(k => text.includes(k))) {
-    return [textMsg(
-      '目前優惠：\n・當月壽星享 85 折\n・留下五星好評享 95 折\n・足部光療 + 深層保養享 9 折\n\n優惠以現場與預約確認為準，歡迎先點「立即預約」保留時段。'
-    )];
+    return [latestPromoGalleryFlex()];
   }
 
   if (['會員專區', '會員', 'member'].some(k => text.toLowerCase().includes(k.toLowerCase()))) {
