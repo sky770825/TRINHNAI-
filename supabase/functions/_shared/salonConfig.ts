@@ -18,20 +18,20 @@ export const SERVICE_NAMES: Record<string, string> = {
 
 // ── 門市名稱 & 資訊 ───────────────────────────────────────────
 export const STORE_NAMES: Record<string, string> = {
-  yuanhua: '元化店',
-  zhongfu: '忠福店',
+  yuanhua: '中壢元化店（前站）',
+  zhongfu: '中壢忠福店（黃昏市場對面）',
 };
 
 export const STORE_INFO: Record<string, { label: string; address: string; mapsUri: string }> = {
   yuanhua: {
-    label:   '元化店',
-    address: '桃園市中壢區元化路 40 號',
-    mapsUri: 'https://www.google.com/maps/search/?api=1&query=%E6%A1%83%E5%9C%92%E5%B8%82%E4%B8%AD%E5%A3%A2%E5%8D%80%E5%85%83%E5%8C%96%E8%B7%AF40%E8%99%9F',
+    label:   '中壢元化店（前站）',
+    address: '中壢區元化路（前站）',
+    mapsUri: 'https://www.google.com/maps/search/?api=1&query=Trinh+Nail+%E4%B8%AD%E5%A3%A2%E5%85%83%E5%8C%96%E5%BA%97+%E4%B8%AD%E5%A3%A2%E5%8D%80%E5%85%83%E5%8C%96%E8%B7%AF',
   },
   zhongfu: {
-    label:   '忠福店',
-    address: '桃園市中壢區福州一街 262 號',
-    mapsUri: 'https://www.google.com/maps/search/?api=1&query=%E6%A1%83%E5%9C%92%E5%B8%82%E4%B8%AD%E5%A3%A2%E5%8D%80%E7%A6%8F%E5%B7%9E%E4%B8%80%E8%A1%97262%E8%99%9F',
+    label:   '中壢忠福店（黃昏市場對面）',
+    address: '中壢區忠福路（黃昏市場對面）',
+    mapsUri: 'https://www.google.com/maps/search/?api=1&query=Trinh+Nail+%E4%B8%AD%E5%A3%A2%E5%BF%A0%E7%A6%8F%E5%BA%97+%E4%B8%AD%E5%A3%A2%E5%8D%80%E5%BF%A0%E7%A6%8F%E8%B7%AF',
   },
 };
 

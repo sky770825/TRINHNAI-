@@ -387,9 +387,9 @@ export function storeSelectionFlex(serviceName: string) {
             type: 'box', layout: 'vertical', spacing: 'sm',
             contents: [
               { type: 'button', style: 'primary', color: BRAND, height: 'md',
-                action: { type: 'message', label: '🏠 元化店｜中壢區元化路 40 號', text: 'yuanhua' } },
+                action: { type: 'message', label: '元化店｜中壢區元化路（前站）', text: 'yuanhua' } },
               { type: 'button', style: 'secondary', height: 'md',
-                action: { type: 'message', label: '🏠 忠福店｜中壢區福州一街 262 號', text: 'zhongfu' } },
+                action: { type: 'message', label: '忠福店｜中壢區忠福路', text: 'zhongfu' } },
             ],
           },
         ],
@@ -695,14 +695,14 @@ export function confirmBookingFlex(data: {
 // ── 預約成功 ──────────────────────────────────────────────────
 const STORE_INFO: Record<string, { label: string; address: string; mapsUri: string }> = {
   yuanhua: {
-    label:    '元化店',
-    address:  '桃園市中壢區元化路 40 號',
-    mapsUri:  'https://www.google.com/maps/search/?api=1&query=%E6%A1%83%E5%9C%92%E5%B8%82%E4%B8%AD%E5%A3%A2%E5%8D%80%E5%85%83%E5%8C%96%E8%B7%AF40%E8%99%9F',
+    label:    '中壢元化店（前站）',
+    address:  '中壢區元化路（前站）',
+    mapsUri:  'https://www.google.com/maps/search/?api=1&query=Trinh+Nail+%E4%B8%AD%E5%A3%A2%E5%85%83%E5%8C%96%E5%BA%97+%E4%B8%AD%E5%A3%A2%E5%8D%80%E5%85%83%E5%8C%96%E8%B7%AF',
   },
   zhongfu: {
-    label:    '忠福店',
-    address:  '桃園市中壢區福州一街 262 號',
-    mapsUri:  'https://www.google.com/maps/search/?api=1&query=%E6%A1%83%E5%9C%92%E5%B8%82%E4%B8%AD%E5%A3%A2%E5%8D%80%E7%A6%8F%E5%B7%9E%E4%B8%80%E8%A1%97262%E8%99%9F',
+    label:    '中壢忠福店（黃昏市場對面）',
+    address:  '中壢區忠福路（黃昏市場對面）',
+    mapsUri:  'https://www.google.com/maps/search/?api=1&query=Trinh+Nail+%E4%B8%AD%E5%A3%A2%E5%BF%A0%E7%A6%8F%E5%BA%97+%E4%B8%AD%E5%A3%A2%E5%8D%80%E5%BF%A0%E7%A6%8F%E8%B7%AF',
   },
 };
 
@@ -835,6 +835,26 @@ export function adminBookingFlex(data: {
 
 // ── 店家資訊 ──────────────────────────────────────────────────
 export function storeInfoBubble() {
+  const storeCard = (store: { label: string; address: string; mapsUri: string }, note: string) => ({
+    type: 'box',
+    layout: 'vertical',
+    spacing: 'sm',
+    paddingAll: '14px',
+    cornerRadius: '14px',
+    backgroundColor: '#FFF7FA',
+    contents: [
+      { type: 'text', text: store.label, weight: 'bold', size: 'md', color: '#2f2428' },
+      { type: 'text', text: store.address, size: 'sm', color: '#67565e', wrap: true },
+      { type: 'text', text: note, size: 'xs', color: BRAND, wrap: true },
+      {
+        type: 'button',
+        style: 'link',
+        height: 'sm',
+        action: { type: 'uri', label: '開啟 Google Maps', uri: store.mapsUri },
+      },
+    ],
+  });
+
   return {
     type: 'flex', altText: '📍 Trinh Nail 店家資訊',
     contents: {
@@ -846,39 +866,22 @@ export function storeInfoBubble() {
       body: {
         type: 'box', layout: 'vertical', spacing: 'md', paddingAll: '20px',
         contents: [
-          { type: 'box', layout: 'baseline', spacing: 'sm', contents: [
-            { type: 'text', text: '🕐', size: 'sm', flex: 0 },
-            { type: 'box', layout: 'vertical', flex: 1, margin: 'sm', contents: [
-              { type: 'text', text: '10:00 – 20:00（線上預約時段）', size: 'sm', color: '#333333' },
-              { type: 'text', text: '20:00 後及其他時段請來電預約', size: 'xs', color: BRAND, wrap: true },
-            ]},
-          ]},
-          { type: 'box', layout: 'baseline', spacing: 'sm', contents: [
-            { type: 'text', text: '📞', size: 'sm', flex: 0 },
-            { type: 'text', text: '0909-318-666', size: 'sm', color: '#333333', margin: 'sm' },
-          ]},
-          { type: 'box', layout: 'baseline', spacing: 'sm', contents: [
-            { type: 'text', text: '💬', size: 'sm', flex: 0 },
-            { type: 'text', text: 'LINE ID：trinh270391', size: 'sm', color: '#333333', margin: 'sm' },
-          ]},
-          { type: 'separator', margin: 'md' },
-          { type: 'box', layout: 'horizontal', margin: 'md', contents: [
-            { type: 'text', text: '元化店', size: 'sm', weight: 'bold', flex: 2, color: '#333333' },
-            { type: 'text', text: '中壢區元化路 40 號', size: 'sm', color: '#666666', flex: 5, wrap: true },
-          ]},
-          { type: 'box', layout: 'horizontal', contents: [
-            { type: 'text', text: '忠福店', size: 'sm', weight: 'bold', flex: 2, color: '#333333' },
-            { type: 'text', text: '中壢區福州一街 262 號', size: 'sm', color: '#666666', flex: 5, wrap: true },
-          ]},
+          { type: 'text', text: '營業與預約', weight: 'bold', size: 'sm', color: '#2f2428' },
+          { type: 'text', text: '10:00 - 20:00 為線上可預約時段，20:00 後及其他特殊時段請來電詢問。', size: 'sm', color: '#67565e', wrap: true },
+          { type: 'separator', margin: 'sm', color: '#F0DDE5' },
+          { type: 'text', text: '電話：0909-318-666', size: 'sm', color: '#333333', wrap: true },
+          { type: 'text', text: 'LINE ID：trinh270391', size: 'sm', color: '#333333', wrap: true },
+          storeCard(STORE_INFO.yuanhua, '中壢前站附近，適合美甲、美睫與保養預約。'),
+          storeCard(STORE_INFO.zhongfu, '忠福商圈周邊，建議預約前先確認服務項目。'),
         ],
       },
       footer: {
         type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px',
         contents: [
           { type: 'button', style: 'primary', color: BRAND, height: 'sm',
-            action: { type: 'uri', label: '🗺 元化店地圖', uri: 'https://www.google.com/maps/search/?api=1&query=%E6%A1%83%E5%9C%92%E5%B8%82%E4%B8%AD%E5%A3%A2%E5%8D%80%E5%85%83%E5%8C%96%E8%B7%AF40%E8%99%9F' } },
+            action: { type: 'uri', label: '元化店地圖', uri: STORE_INFO.yuanhua.mapsUri } },
           { type: 'button', style: 'secondary', height: 'sm',
-            action: { type: 'uri', label: '🗺 忠福店地圖', uri: 'https://www.google.com/maps/search/?api=1&query=%E6%A1%83%E5%9C%92%E5%B8%82%E4%B8%AD%E5%A3%A2%E5%8D%80%E7%A6%8F%E5%B7%9E%E4%B8%80%E8%A1%97262%E8%99%9F' } },
+            action: { type: 'uri', label: '忠福店地圖', uri: STORE_INFO.zhongfu.mapsUri } },
         ],
       },
     },
