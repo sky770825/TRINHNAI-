@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, isSupabaseConfigured, SUPABASE_CONFIG_MESSAGE } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { invokeAdminLeads, ADMIN_LEADS_401_MESSAGE } from "@/api";
 import type { LineUser } from "@/api/types";
@@ -188,6 +188,11 @@ const CRM = () => {
 
   // Load data on mount
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setIsLoading(false);
+      return;
+    }
+
     fetchData();
     fetchBotSettings();
     fetchKeywords();
@@ -527,14 +532,28 @@ const CRM = () => {
     return Array.from(dates).map(date => parseISO(date));
   };
 
+  const fetchLineUsersDirect = async () => {
+    const { data, error } = await supabase
+      .from("line_users")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    setLineUsers((data || []) as LineUser[]);
+  };
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
       const result = await invokeAdminLeads<{ lineUsers?: LineUser[] }>({ action: "getLineUsers" });
       if (!result.error && result.data?.lineUsers) {
         setLineUsers(result.data.lineUsers);
-      } else if (result.error && result.is401) {
-        toast.error(ADMIN_LEADS_401_MESSAGE);
+      } else if (result.error) {
+        if (import.meta.env.DEV) {
+          await fetchLineUsersDirect();
+        } else {
+          toast.error(ADMIN_LEADS_401_MESSAGE);
+        }
       }
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -555,8 +574,13 @@ const CRM = () => {
       if (!result.error && result.data?.lineUsers) {
         setLineUsers(result.data.lineUsers);
         toast.success("資料已更新");
-      } else if (result.error && result.is401) {
-        toast.error(ADMIN_LEADS_401_MESSAGE);
+      } else if (result.error) {
+        if (import.meta.env.DEV) {
+          await fetchLineUsersDirect();
+          toast.success("資料已更新（開發模式直接讀取）");
+        } else {
+          toast.error(ADMIN_LEADS_401_MESSAGE);
+        }
       }
     } finally {
       setIsLoading(false);
@@ -769,21 +793,21 @@ const CRM = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-card border-b border-border/50 sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full gradient-gold flex items-center justify-center">
+        <div className="container mx-auto px-4 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="w-10 h-10 shrink-0 rounded-full gradient-gold flex items-center justify-center">
               <MessageCircle className="w-5 h-5 text-primary-foreground" />
             </div>
-            <h1 className="font-display text-xl font-medium text-foreground">
+            <h1 className="font-display text-lg sm:text-xl font-medium leading-tight text-foreground">
               🤖 LINE 客戶管理 CRM
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full items-center gap-2 overflow-x-auto pb-1 lg:w-auto lg:overflow-visible lg:pb-0">
             <Button 
               variant="outline" 
               size="sm" 
               onClick={handleDownloadChecklist}
-              className="text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200"
+              className="shrink-0 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200"
             >
               <ClipboardList className="w-4 h-4" />
               下載簽到表 ({userCounts.confirmed})
@@ -792,12 +816,12 @@ const CRM = () => {
               variant="default" 
               size="sm" 
               onClick={() => setIsBroadcastOpen(true)}
-              className="bg-primary hover:bg-primary/90"
+              className="shrink-0 bg-primary hover:bg-primary/90"
             >
               <Megaphone className="w-4 h-4" />
               訊息推播
             </Button>
-            <Button variant="outline" size="sm" onClick={refreshData} disabled={isLoading}>
+            <Button variant="outline" size="sm" className="shrink-0" onClick={refreshData} disabled={isLoading}>
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
@@ -805,14 +829,14 @@ const CRM = () => {
               )}
               重新整理
             </Button>
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="sm" className="shrink-0" asChild>
               <Link to="/admin">
                 <Users className="w-4 h-4" />
                 後台管理
                 <ExternalLink className="w-3 h-3" />
               </Link>
             </Button>
-            <Button variant="outline" onClick={handleLogout}>
+            <Button variant="outline" className="shrink-0" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
               登出
             </Button>
@@ -822,29 +846,39 @@ const CRM = () => {
 
       {/* Content */}
       <main className="container mx-auto px-4 py-8">
+        {!isSupabaseConfigured && (
+          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-medium">CRM 尚未連接 Supabase / LINE 後端</p>
+            <p className="mt-1">
+              {SUPABASE_CONFIG_MESSAGE} 目前只顯示空資料，LINE 用戶、關鍵字、預約與推播功能都需要先補齊後端環境變數。
+            </p>
+          </div>
+        )}
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="bg-muted/50">
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              用戶管理
-            </TabsTrigger>
-            <TabsTrigger value="remarketing" className="flex items-center gap-2">
-              <Repeat className="w-4 h-4" />
-              再行銷設定
-            </TabsTrigger>
-            <TabsTrigger value="keywords" className="flex items-center gap-2">
-              <Key className="w-4 h-4" />
-              關鍵字管理
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              機器人設定
-            </TabsTrigger>
-            <TabsTrigger value="bookings" className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              預約管理
-            </TabsTrigger>
-          </TabsList>
+          <div className="-mx-4 overflow-x-auto px-4 pb-2">
+            <TabsList className="h-auto w-max bg-muted/50">
+              <TabsTrigger value="users" className="flex items-center gap-2 px-3 py-2">
+                <Users className="w-4 h-4" />
+                用戶管理
+              </TabsTrigger>
+              <TabsTrigger value="remarketing" className="flex items-center gap-2 px-3 py-2">
+                <Repeat className="w-4 h-4" />
+                再行銷設定
+              </TabsTrigger>
+              <TabsTrigger value="keywords" className="flex items-center gap-2 px-3 py-2">
+                <Key className="w-4 h-4" />
+                關鍵字管理
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex items-center gap-2 px-3 py-2">
+                <Settings className="w-4 h-4" />
+                機器人設定
+              </TabsTrigger>
+              <TabsTrigger value="bookings" className="flex items-center gap-2 px-3 py-2">
+                <Calendar className="w-4 h-4" />
+                預約管理
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Users Tab */}
           <TabsContent value="users">

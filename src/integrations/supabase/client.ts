@@ -5,11 +5,20 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+export const isSupabaseConfigured =
+  typeof SUPABASE_URL === "string" &&
+  SUPABASE_URL.length > 0 &&
+  !SUPABASE_URL.includes("your-project.supabase.co") &&
+  typeof SUPABASE_PUBLISHABLE_KEY === "string" &&
+  SUPABASE_PUBLISHABLE_KEY.length > 0 &&
+  SUPABASE_PUBLISHABLE_KEY !== "your-anon-key";
+
+export const SUPABASE_CONFIG_MESSAGE =
+  "Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY, then restart or redeploy.";
+
 // 檢查環境變數是否設定（建置時由 Vite 寫入，未設則會連到 placeholder 且失敗）
-if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  console.error(
-    'Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your hosting (e.g. Cloudflare Pages → Settings → Environment variables), then redeploy.'
-  );
+if (!isSupabaseConfigured) {
+  console.error(SUPABASE_CONFIG_MESSAGE);
 }
 
 // Import the supabase client like this:

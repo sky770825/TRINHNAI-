@@ -6,7 +6,13 @@ export async function fetchLeads(): Promise<{ data: Lead[] | null; error: Error 
     .from("leads")
     .select("*")
     .order("created_at", { ascending: false });
-  if (error) return { data: null, error: error as Error };
+  if (error) {
+    const e = error as Error & { code?: string };
+    if (e.code === "PGRST205" || e.message?.includes("Could not find the table")) {
+      return { data: [], error: null };
+    }
+    return { data: null, error: error as Error };
+  }
   return { data: data ?? [], error: null };
 }
 

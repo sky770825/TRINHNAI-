@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, isSupabaseConfigured, SUPABASE_CONFIG_MESSAGE } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
   fetchLeads,
@@ -269,6 +269,11 @@ const Admin = () => {
 
   // Load data on mount
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setIsLoading(false);
+      return;
+    }
+
     fetchData();
     fetchServices();
     fetchStores();
@@ -1123,24 +1128,24 @@ const Admin = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-card border-b border-border/50 sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full gradient-gold flex items-center justify-center">
+        <div className="container mx-auto px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="w-10 h-10 shrink-0 rounded-full gradient-gold flex items-center justify-center">
               <Users className="w-5 h-5 text-primary-foreground" />
             </div>
-            <h1 className="font-display text-xl font-medium text-foreground">
+            <h1 className="font-display text-lg sm:text-xl font-medium leading-tight text-foreground">
               📋 Trinhnai 後台管理
             </h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
+          <div className="flex w-full items-center gap-2 overflow-x-auto pb-1 sm:w-auto sm:overflow-visible sm:pb-0">
+            <Button variant="outline" size="sm" className="shrink-0" asChild>
               <Link to="/crm">
                 <MessageCircle className="w-4 h-4" />
                 LINE CRM
                 <ExternalLink className="w-3 h-3" />
               </Link>
             </Button>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
+            <Button variant="outline" size="sm" className="shrink-0" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
               登出
             </Button>
@@ -1150,33 +1155,43 @@ const Admin = () => {
 
       {/* Content */}
       <main className="container mx-auto px-4 py-8">
+        {!isSupabaseConfigured && (
+          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-medium">後台尚未連接 Supabase</p>
+            <p className="mt-1">
+              {SUPABASE_CONFIG_MESSAGE} 目前只顯示空資料，新增、更新、刪除和圖片上傳都需要先補齊後端環境變數。
+            </p>
+          </div>
+        )}
         <Tabs defaultValue="bookings" className="w-full">
-          <TabsList className="grid w-full max-w-5xl grid-cols-6 mb-6">
-            <TabsTrigger value="bookings" className="flex items-center gap-2">
-              <CalendarDays className="w-4 h-4" />
-              預約記錄 ({filteredBookings.length})
-            </TabsTrigger>
-            <TabsTrigger value="leads" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              名單管理 ({leads.length})
-            </TabsTrigger>
-            <TabsTrigger value="announcements" className="flex items-center gap-2">
-              <Bell className="w-4 h-4" />
-              公告管理
-            </TabsTrigger>
-            <TabsTrigger value="services" className="flex items-center gap-2">
-              <Image className="w-4 h-4" />
-              服務項目
-            </TabsTrigger>
-            <TabsTrigger value="stores" className="flex items-center gap-2">
-              <Store className="w-4 h-4" />
-              分店設定
-            </TabsTrigger>
-            <TabsTrigger value="site" className="flex items-center gap-2">
-              <Globe className="w-4 h-4" />
-              網站設定
-            </TabsTrigger>
-          </TabsList>
+          <div className="-mx-4 overflow-x-auto px-4 pb-2">
+            <TabsList className="grid h-auto w-max min-w-[880px] grid-cols-6 mb-4 lg:w-full lg:max-w-5xl">
+              <TabsTrigger value="bookings" className="flex items-center gap-2 px-3 py-2">
+                <CalendarDays className="w-4 h-4" />
+                預約記錄 ({filteredBookings.length})
+              </TabsTrigger>
+              <TabsTrigger value="leads" className="flex items-center gap-2 px-3 py-2">
+                <Users className="w-4 h-4" />
+                名單管理 ({leads.length})
+              </TabsTrigger>
+              <TabsTrigger value="announcements" className="flex items-center gap-2 px-3 py-2">
+                <Bell className="w-4 h-4" />
+                公告管理
+              </TabsTrigger>
+              <TabsTrigger value="services" className="flex items-center gap-2 px-3 py-2">
+                <Image className="w-4 h-4" />
+                服務項目
+              </TabsTrigger>
+              <TabsTrigger value="stores" className="flex items-center gap-2 px-3 py-2">
+                <Store className="w-4 h-4" />
+                分店設定
+              </TabsTrigger>
+              <TabsTrigger value="site" className="flex items-center gap-2 px-3 py-2">
+                <Globe className="w-4 h-4" />
+                網站設定
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Bookings Tab */}
           <TabsContent value="bookings">

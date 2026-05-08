@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { isSupabaseConfigured } from "@/integrations/supabase/client";
 import { Loader2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -8,21 +9,22 @@ interface AdminGuardProps {
   children: ReactNode;
 }
 
-// 不顯示登入介面，直接可進後台與 CRM（若要恢復登入，改為 false 並設 VITE_SKIP_AUTH）
-const SKIP_AUTH = true;
+// 開發測試可用 VITE_SKIP_AUTH=true；正式環境預設必須登入且具 admin 角色。
+const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === "true";
+const ALLOW_LOCAL_CONFIG_PREVIEW = import.meta.env.DEV && !isSupabaseConfigured;
 
 const AdminGuard = ({ children }: AdminGuardProps) => {
   const navigate = useNavigate();
   const { user, isAdmin, isLoading } = useAuth();
 
   useEffect(() => {
-    if (SKIP_AUTH) return;
+    if (SKIP_AUTH || ALLOW_LOCAL_CONFIG_PREVIEW) return;
     if (!isLoading && !user) {
       navigate("/");
     }
   }, [user, isLoading, navigate]);
 
-  if (SKIP_AUTH) {
+  if (SKIP_AUTH || ALLOW_LOCAL_CONFIG_PREVIEW) {
     return <>{children}</>;
   }
 
