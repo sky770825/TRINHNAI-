@@ -2,8 +2,13 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { supabase, isSupabaseConfigured, SUPABASE_CONFIG_MESSAGE } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { invokeAdminLeads, ADMIN_LEADS_401_MESSAGE } from "@/api";
-import type { LineUser } from "@/api/types";
+import {
+  invokeAdminLeads,
+  ADMIN_LEADS_401_MESSAGE,
+  fetchBookings as fetchUnifiedBookings,
+  updateBookingStatus,
+} from "@/api";
+import type { BookingSource, LineUser, UnifiedBooking } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -64,22 +69,6 @@ interface BotKeyword {
   updated_at: string;
 }
 
-interface LineBooking {
-  id: string;
-  line_user_id: string;
-  user_name: string | null;
-  phone: string | null;
-  service: string;
-  store: string;
-  booking_date: string;
-  booking_time: string;
-  notes: string | null;
-  status: string;
-  confirmed_at: string | null;
-  confirmed_by: string | null;
-  created_at: string;
-}
-
 const followStatusLabels: Record<string, { label: string; className: string }> = {
   following: { label: "追蹤中", className: "bg-green-100 text-green-800" },
   unfollowed: { label: "已取消追蹤", className: "bg-gray-100 text-gray-800" },
@@ -104,6 +93,16 @@ const RESPONSE_TYPE_OPTIONS: { value: string; label: string; shortDesc: string; 
 
 const getResponseTypeLabel = (type: string) =>
   RESPONSE_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? (type === "registration" ? "報名流程" : type === "text" ? "文字回覆" : type);
+
+const bookingSourceLabels: Record<BookingSource, string> = {
+  website: "官網預約",
+  line: "LINE OA",
+};
+
+const bookingSourceBadgeClassNames: Record<BookingSource, string> = {
+  website: "border-rose-200 bg-rose-50 text-rose-700",
+  line: "border-emerald-200 bg-emerald-50 text-emerald-700",
+};
 
 const CRM = () => {
   const navigate = useNavigate();
@@ -147,7 +146,7 @@ const CRM = () => {
   });
   
   // Bookings state
-  const [bookings, setBookings] = useState<LineBooking[]>([]);
+  const [bookings, setBookings] = useState<UnifiedBooking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(false);
   const [bookingFilter, setBookingFilter] = useState<string>("all");
   const [bookingView, setBookingView] = useState<"table" | "calendar">("table");
@@ -185,6 +184,13 @@ const CRM = () => {
       confirmed: following.filter(u => u.payment_status === 'confirmed').length,
     };
   }, [lineUsers]);
+
+  const bookingCounts = useMemo(() => ({
+    all: bookings.length,
+    website: bookings.filter((booking) => booking.source === "website").length,
+    line: bookings.filter((booking) => booking.source === "line").length,
+    pending: bookings.filter((booking) => booking.status === "pending").length,
+  }), [bookings]);
 
   // Load data on mount
   useEffect(() => {
@@ -457,22 +463,59 @@ const CRM = () => {
   const fetchBookings = async () => {
     setIsLoadingBookings(true);
     try {
-      const { data, error } = await supabase
-        .from('line_bookings')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
+      const result = await invokeAdminLeads<{ bookings?: UnifiedBooking[] }>({ action: "getAdminData" });
+      if (!result.error && result.data?.bookings) {
+        setBookings(result.data.bookings);
+        return;
+      }
+
+      if (result.error && !import.meta.env.DEV) {
+        toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : "載入預約失敗");
+        return;
+      }
+
+      const { data, error } = await fetchUnifiedBookings();
       if (error) throw error;
       setBookings(data || []);
     } catch (err) {
       console.error("Error fetching bookings:", err);
+      toast.error("載入預約失敗，請稍後再試");
     } finally {
       setIsLoadingBookings(false);
     }
   };
 
   const confirmBooking = async (bookingId: string) => {
+    const booking = bookings.find((item) => item.id === bookingId);
+    if (!booking) {
+      toast.error("找不到這筆預約，請重新整理");
+      return;
+    }
+
     try {
+      if (booking.source === "website") {
+        const result = await invokeAdminLeads({
+          action: "updateStatus",
+          bookingId,
+          newStatus: "confirmed",
+          bookingSource: booking.source,
+        });
+
+        if (result.error) {
+          if (import.meta.env.DEV) {
+            const { error } = await updateBookingStatus(bookingId, "confirmed", booking.source);
+            if (error) throw error;
+          } else {
+            toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : "確認失敗");
+            return;
+          }
+        }
+
+        toast.success("官網預約已確認");
+        fetchBookings();
+        return;
+      }
+
       // First update booking status and send LINE confirmation
       const result = await invokeAdminLeads({ action: "sendBookingConfirmation", lineBookingId: bookingId });
       if (result.error) {
@@ -490,15 +533,32 @@ const CRM = () => {
 
   const cancelBooking = async (bookingId: string) => {
     if (!confirm("確定要取消此預約嗎？")) return;
+
+    const booking = bookings.find((item) => item.id === bookingId);
+    if (!booking) {
+      toast.error("找不到這筆預約，請重新整理");
+      return;
+    }
     
     try {
-      const { error } = await supabase
-        .from('line_bookings')
-        .update({ status: 'cancelled' })
-        .eq('id', bookingId);
-      
-      if (error) throw error;
-      toast.success("預約已取消");
+      const result = await invokeAdminLeads({
+        action: "updateStatus",
+        bookingId,
+        newStatus: "cancelled",
+        bookingSource: booking.source,
+      });
+
+      if (result.error) {
+        if (import.meta.env.DEV) {
+          const { error } = await updateBookingStatus(bookingId, "cancelled", booking.source);
+          if (error) throw error;
+        } else {
+          toast.error(result.is401 ? ADMIN_LEADS_401_MESSAGE : "取消失敗");
+          return;
+        }
+      }
+
+      toast.success(`${bookingSourceLabels[booking.source]}已取消`);
       fetchBookings();
     } catch (err) {
       toast.error("取消失敗");
@@ -1244,8 +1304,14 @@ const CRM = () => {
                       預約管理
                     </h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      查看和管理所有 LINE 預約
+                      查看和管理官網表單與 LINE OA 的所有預約
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Badge variant="secondary">全部 {bookingCounts.all}</Badge>
+                      <Badge variant="outline" className={bookingSourceBadgeClassNames.website}>官網 {bookingCounts.website}</Badge>
+                      <Badge variant="outline" className={bookingSourceBadgeClassNames.line}>LINE OA {bookingCounts.line}</Badge>
+                      <Badge variant="outline">待確認 {bookingCounts.pending}</Badge>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex items-center border rounded-md">
@@ -1374,7 +1440,13 @@ const CRM = () => {
                                     <div className="flex items-center gap-3 flex-1 min-w-0">
                                       <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                                       <span className="font-semibold text-sm w-16 flex-shrink-0">{booking.booking_time}</span>
-                                      <span className="font-medium truncate flex-1">{booking.user_name || '未提供姓名'}</span>
+                                      <span className="font-medium truncate flex-1">{booking.name || '未提供姓名'}</span>
+                                      <Badge
+                                        variant="outline"
+                                        className={`flex-shrink-0 ${bookingSourceBadgeClassNames[booking.source]}`}
+                                      >
+                                        {bookingSourceLabels[booking.source]}
+                                      </Badge>
                                       <Badge 
                                         variant={
                                           booking.status === 'confirmed' ? 'default' : 
@@ -1403,6 +1475,15 @@ const CRM = () => {
                                       <div className="grid gap-3 sm:grid-cols-2">
                                         <div className="space-y-2">
                                           <div className="flex items-center gap-2">
+                                            <span className="text-sm text-muted-foreground w-16">來源：</span>
+                                            <Badge
+                                              variant="outline"
+                                              className={bookingSourceBadgeClassNames[booking.source]}
+                                            >
+                                              {bookingSourceLabels[booking.source]}
+                                            </Badge>
+                                          </div>
+                                          <div className="flex items-center gap-2">
                                             <span className="text-sm text-muted-foreground w-16">電話：</span>
                                             <span className="font-mono text-sm">{booking.phone || '-'}</span>
                                           </div>
@@ -1412,6 +1493,20 @@ const CRM = () => {
                                           </div>
                                         </div>
                                         <div className="space-y-2">
+                                          {booking.email && (
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-sm text-muted-foreground w-16">Email：</span>
+                                              <span className="text-sm break-all">{booking.email}</span>
+                                            </div>
+                                          )}
+                                          {(booking.line_id || booking.line_user_id) && (
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-sm text-muted-foreground w-16">LINE：</span>
+                                              <span className="font-mono text-sm truncate">
+                                                {booking.source === "website" ? booking.line_id : booking.line_user_id}
+                                              </span>
+                                            </div>
+                                          )}
                                           <div className="flex items-center gap-2">
                                             <Store className="w-4 h-4 text-muted-foreground" />
                                             <span className="text-sm text-muted-foreground">分店：</span>
@@ -1481,7 +1576,7 @@ const CRM = () => {
                         <TableHead>電話</TableHead>
                         <TableHead>服務</TableHead>
                         <TableHead>分店</TableHead>
-                        <TableHead>LINE ID</TableHead>
+                        <TableHead>來源 / LINE</TableHead>
                         <TableHead>狀態</TableHead>
                         <TableHead>建立時間</TableHead>
                         <TableHead>操作</TableHead>
@@ -1503,18 +1598,37 @@ const CRM = () => {
                             <TableRow key={booking.id}>
                               <TableCell className="font-medium">{booking.booking_date}</TableCell>
                               <TableCell>{booking.booking_time}</TableCell>
-                              <TableCell>{booking.user_name || '-'}</TableCell>
+                              <TableCell>
+                                <div className="min-w-[140px]">
+                                  <div className="font-medium">{booking.name || '-'}</div>
+                                  {booking.email && (
+                                    <div className="text-xs text-muted-foreground break-all">{booking.email}</div>
+                                  )}
+                                </div>
+                              </TableCell>
                               <TableCell className="font-mono text-sm">{booking.phone || '-'}</TableCell>
                               <TableCell>{getServiceName(booking.service)}</TableCell>
                               <TableCell>{getStoreName(booking.store)}</TableCell>
                               <TableCell className="font-mono text-xs">
-                                {booking.line_user_id ? (
-                                  <span className="text-muted-foreground" title={booking.line_user_id}>
-                                    {booking.line_user_id.slice(0, 8)}...
-                                  </span>
-                                ) : (
-                                  <span className="text-red-500">未設定</span>
-                                )}
+                                <div className="space-y-1 min-w-[110px]">
+                                  <Badge
+                                    variant="outline"
+                                    className={bookingSourceBadgeClassNames[booking.source]}
+                                  >
+                                    {bookingSourceLabels[booking.source]}
+                                  </Badge>
+                                  {booking.source === "line" && booking.line_user_id ? (
+                                    <div className="text-muted-foreground" title={booking.line_user_id}>
+                                      {booking.line_user_id.slice(0, 10)}...
+                                    </div>
+                                  ) : booking.line_id ? (
+                                    <div className="text-muted-foreground" title={booking.line_id}>
+                                      {booking.line_id}
+                                    </div>
+                                  ) : (
+                                    <div className="text-muted-foreground">未填 LINE ID</div>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <Badge 
