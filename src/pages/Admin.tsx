@@ -936,7 +936,7 @@ const Admin = () => {
     }
     
     const bucketExists = await checkAnnouncementBucketExists();
-    if (!bucketExists) console.warn("Storage bucket 'announcement-images' 不存在");
+    if (!bucketExists) console.warn("Storage bucket 'site-assets' 不存在或無法存取");
     setIsAnnouncementDialogOpen(true);
   };
 
@@ -974,7 +974,7 @@ const Admin = () => {
       if (selectedAnnouncementImageFile) {
         const fileExt = selectedAnnouncementImageFile.name.split('.').pop();
         const fileName = `announcement-${Date.now()}.${fileExt}`;
-        const filePath = `${fileName}`;
+        const filePath = `announcements/${fileName}`;
 
         console.log("開始上傳圖片:", {
           fileName,
@@ -983,39 +983,15 @@ const Admin = () => {
           fileType: selectedAnnouncementImageFile.type
         });
 
-        // 檢測 bucket 是否存在
-        const bucketExists = await checkStorageBucket();
+        // 檢測公告圖片使用的 site-assets bucket 是否存在
+        const bucketExists = await checkAnnouncementBucketExists();
         
         if (!bucketExists) {
-          console.log("Bucket 不存在，嘗試自動創建...");
-          
-          // 嘗試通過 Edge Function 自動創建 bucket
-          try {
-            const { data: createResult, error: createError } = await supabase.functions.invoke('create-storage-bucket', {
-              body: { bucketName: 'announcement-images' }
-            });
-
-            if (createError || createResult?.error) {
-              console.error("自動創建 bucket 失敗:", createError || createResult?.error);
-              toast.error(
-                "Storage bucket 不存在且自動創建失敗。請在 Supabase Dashboard → Storage 創建 'announcement-images' bucket（公開），或執行 CREATE_ANNOUNCEMENT_STORAGE_BUCKET.sql",
-                { duration: 10000 }
-              );
-              return;
-            }
-
-            console.log("Bucket 自動創建成功:", createResult);
-            toast.success("已自動創建 Storage bucket，正在上傳圖片...");
-            // 等待一下讓 bucket 創建完成
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          } catch (err) {
-            console.error("創建 bucket 時發生錯誤:", err);
-            toast.error(
-              "無法自動創建 bucket。請在 Supabase Dashboard → Storage 創建 'announcement-images' bucket（公開），或執行 CREATE_ANNOUNCEMENT_STORAGE_BUCKET.sql",
-              { duration: 10000 }
-            );
-            return;
-          }
+          toast.error(
+            "Storage bucket 'site-assets' 不存在或無法存取，請先確認 Supabase Storage 設定",
+            { duration: 10000 }
+          );
+          return;
         }
 
         const { publicUrl: uploadedUrl, error: uploadError } = await uploadAnnouncementImage(
@@ -1040,8 +1016,8 @@ const Admin = () => {
             errorMessage = "未登入或 session 已過期";
             errorHint = "請執行 DEV_RLS_allow_anon_writes.sql 以允許未登入上傳（開發用），或登入後再試";
           } else if (uploadError.message?.includes('not found') || uploadError.message?.includes('does not exist') || uploadError.statusCode === 404) {
-            errorMessage = "Storage bucket 'announcement-images' 不存在";
-            errorHint = "請在 Supabase Dashboard → Storage → New bucket 創建，或執行 CREATE_ANNOUNCEMENT_STORAGE_BUCKET.sql";
+            errorMessage = "Storage bucket 'site-assets' 不存在";
+            errorHint = "請確認 Supabase Dashboard → Storage 有 site-assets bucket";
           } else if (uploadError.message?.includes('new row violates row-level security policy') || uploadError.statusCode === 42501) {
             errorMessage = "權限不足：RLS 策略阻止上傳";
             errorHint = "請執行 DEV_RLS_allow_anon_writes.sql（開發用）或登入後再試。執行 CHECK_STORAGE_SETUP.sql 可檢查 RLS。";
@@ -1069,9 +1045,18 @@ const Admin = () => {
           return;
         }
         finalImageUrl = uploadedUrl;
-        if (editingAnnouncement?.image_url?.includes("announcement-images")) {
-          const oldPath = editingAnnouncement.image_url.split("/announcement-images/").pop();
-          if (oldPath) await removeAnnouncementImage(oldPath);
+        if (editingAnnouncement?.image_url) {
+          const oldUrl = editingAnnouncement.image_url;
+          const bucketMarker = oldUrl.includes("/site-assets/")
+            ? "/site-assets/"
+            : oldUrl.includes("/announcement-images/")
+              ? "/announcement-images/"
+              : null;
+          if (bucketMarker) {
+            const oldPath = oldUrl.split(bucketMarker).pop()?.split("?")[0];
+            const oldBucket = bucketMarker === "/site-assets/" ? "site-assets" : "announcement-images";
+            if (oldPath) await removeAnnouncementImage(decodeURIComponent(oldPath), oldBucket);
+          }
         }
       }
 

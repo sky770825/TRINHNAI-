@@ -1,6 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Announcement, AnnouncementInsert } from "./types";
 
+const ANNOUNCEMENT_IMAGE_BUCKET = "site-assets";
+const ANNOUNCEMENT_IMAGE_PREFIX = "announcements";
+
 export async function fetchAnnouncements(): Promise<{
   data: Announcement[] | null;
   error: Error | null;
@@ -51,24 +54,28 @@ export async function uploadAnnouncementImage(
   fileName?: string
 ): Promise<{ publicUrl: string | null; error: Error | null }> {
   const ext = file.name.split(".").pop() || "png";
-  const path = fileName || `announcement-${Date.now()}.${ext}`;
+  const path = fileName || `${ANNOUNCEMENT_IMAGE_PREFIX}/announcement-${Date.now()}.${ext}`;
   const { error } = await supabase.storage
-    .from("announcement-images")
+    .from(ANNOUNCEMENT_IMAGE_BUCKET)
     .upload(path, file, { cacheControl: "3600", upsert: false });
   if (error) return { publicUrl: null, error: error as Error };
   const {
     data: { publicUrl },
-  } = supabase.storage.from("announcement-images").getPublicUrl(path);
+  } = supabase.storage.from(ANNOUNCEMENT_IMAGE_BUCKET).getPublicUrl(path);
   return { publicUrl, error: null };
 }
 
-export async function removeAnnouncementImage(pathInBucket: string): Promise<{ error: Error | null }> {
-  const { error } = await supabase.storage.from("announcement-images").remove([pathInBucket]);
+export async function removeAnnouncementImage(
+  pathInBucket: string,
+  bucket = ANNOUNCEMENT_IMAGE_BUCKET
+): Promise<{ error: Error | null }> {
+  const { error } = await supabase.storage.from(bucket).remove([pathInBucket]);
   return { error: error ? (error as Error) : null };
 }
 
 export async function checkAnnouncementBucketExists(): Promise<boolean> {
-  const { data: buckets, error } = await supabase.storage.listBuckets();
-  if (error) return false;
-  return buckets?.some((b) => b.name === "announcement-images") ?? false;
+  const { error } = await supabase.storage
+    .from(ANNOUNCEMENT_IMAGE_BUCKET)
+    .list(ANNOUNCEMENT_IMAGE_PREFIX, { limit: 1 });
+  return !error;
 }
