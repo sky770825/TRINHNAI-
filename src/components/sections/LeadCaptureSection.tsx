@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
@@ -23,22 +23,24 @@ import {
 } from "@/components/ui/form";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { Calendar, Loader2, CheckCircle, Heart } from "lucide-react";
 import { bookingSchema, type BookingFormData } from "@/lib/validations";
-
-const timeSlots = [
-  "09:00", "10:00", "11:00", "12:00",
-  "13:00", "14:00", "15:00", "16:00",
-  "17:00", "18:00", "19:00", "20:00",
-  "21:00", "22:00", "23:00", "24:00"
-];
+import {
+  PUBLIC_TIME_SLOTS,
+  createPublicBooking,
+  fetchAvailableBookingSlots,
+  getTaipeiDateInputValue,
+  sendBookingConfirmationEmail,
+} from "@/api/publicBooking";
 
 export const LeadCaptureSection = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState(PUBLIC_TIME_SLOTS);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+  const [slotError, setSlotError] = useState<string | null>(null);
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
@@ -55,6 +57,10 @@ export const LeadCaptureSection = () => {
       privacy: false,
     },
   });
+  const selectedStore = form.watch("store");
+  const selectedService = form.watch("service");
+  const selectedDate = form.watch("date");
+  const minBookingDate = getTaipeiDateInputValue();
 
   const stores = [
     { value: "yuanhua" as const, label: "中壢元化店（前站）" },
@@ -68,75 +74,75 @@ export const LeadCaptureSection = () => {
     { value: "waxing" as const, labelKey: "booking.service.waxing" },
   ];
 
+  useEffect(() => {
+    if (!selectedStore || !selectedService || !selectedDate) {
+      setAvailableTimeSlots(PUBLIC_TIME_SLOTS);
+      setSlotError(null);
+      return;
+    }
+
+    let isActive = true;
+    setIsLoadingSlots(true);
+    setSlotError(null);
+
+    fetchAvailableBookingSlots({
+      store: selectedStore,
+      service: selectedService,
+      date: selectedDate,
+    })
+      .then((slots) => {
+        if (!isActive) return;
+        setAvailableTimeSlots(slots);
+        const currentTime = form.getValues("time");
+        if (currentTime && !slots.includes(currentTime)) {
+          form.setValue("time", "");
+        }
+      })
+      .catch((error) => {
+        if (!isActive) return;
+        console.error("Error fetching available slots:", error);
+        setAvailableTimeSlots([]);
+        setSlotError("目前無法讀取可預約時段，請稍後再試或直接聯繫門市");
+      })
+      .finally(() => {
+        if (isActive) setIsLoadingSlots(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [form, selectedDate, selectedService, selectedStore]);
+
   const onSubmit = async (data: BookingFormData) => {
     setIsSubmitting(true);
 
     try {
-      // Save booking to database
-      const { error: dbError } = await supabase
-        .from('bookings')
-        .insert({
-          name: data.name,
-          email: data.email,
-          phone: data.phone || null,
-          line_id: data.lineId || null,
-          store: data.store,
-          service: data.service,
-          booking_date: data.date,
-          booking_time: data.time,
-          notes: data.notes || null,
-          status: 'pending',
-        });
+      const bookingInput = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        lineId: data.lineId || undefined,
+        store: data.store,
+        service: data.service,
+        date: data.date,
+        time: data.time,
+        notes: data.notes || undefined,
+      };
 
-      if (dbError) {
-        console.error("Error saving booking:", dbError);
-        throw dbError;
-      }
+      await createPublicBooking(bookingInput);
 
-      // Send to webhook
       try {
-        await fetch('https://sky770825.zeabur.app/webhook/lovabletext', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name: data.name,
-            email: data.email,
-            phone: data.phone || null,
-            lineId: data.lineId || null,
-            store: data.store,
-            service: data.service,
-            date: data.date,
-            time: data.time,
-            notes: data.notes || null,
-          }),
-        });
-        console.log("Webhook sent successfully");
-      } catch (webhookError) {
-        console.error("Error sending to webhook:", webhookError);
-      }
-
-      // Send booking confirmation emails
-      try {
-        await supabase.functions.invoke('send-booking-confirmation', {
-          body: {
-            name: data.name,
-            email: data.email,
-            phone: data.phone,
-            lineId: data.lineId || null,
-            store: data.store,
-            service: data.service,
-            date: data.date,
-            time: data.time,
-            notes: data.notes || null,
-            admin_email: "sky19880825@gmail.com",
-          },
-        });
-        console.log("Booking confirmation emails sent successfully");
+        await sendBookingConfirmationEmail(bookingInput);
       } catch (emailError) {
         console.error("Failed to send confirmation email:", emailError);
       }
+
+      const latestSlots = await fetchAvailableBookingSlots({
+        store: data.store,
+        service: data.service,
+        date: data.date,
+      });
+      setAvailableTimeSlots(latestSlots);
 
       setIsSuccess(true);
       toast({
@@ -152,7 +158,7 @@ export const LeadCaptureSection = () => {
     } catch (error) {
       toast({
         title: "預約失敗",
-        description: "請稍後再試或聯繫我們",
+        description: error instanceof Error ? error.message : "請稍後再試或聯繫我們",
         variant: "destructive",
       });
     } finally {
@@ -369,6 +375,7 @@ export const LeadCaptureSection = () => {
                           <FormControl>
                             <Input
                               type="date"
+                              min={minBookingDate}
                               {...field}
                             />
                           </FormControl>
@@ -387,20 +394,42 @@ export const LeadCaptureSection = () => {
                           <Select
                             onValueChange={field.onChange}
                             value={field.value}
+                            disabled={!selectedStore || !selectedService || !selectedDate || isLoadingSlots || availableTimeSlots.length === 0}
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder={t("booking.time")} />
+                                <SelectValue
+                                  placeholder={
+                                    isLoadingSlots
+                                      ? "讀取可約時段..."
+                                      : availableTimeSlots.length === 0 && selectedStore && selectedService && selectedDate
+                                        ? "目前已滿"
+                                        : t("booking.time")
+                                  }
+                                />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {timeSlots.map((time) => (
-                                <SelectItem key={time} value={time}>
-                                  {time}
+                              {isLoadingSlots ? (
+                                <SelectItem value="loading" disabled>
+                                  讀取可約時段...
                                 </SelectItem>
-                              ))}
+                              ) : availableTimeSlots.length === 0 ? (
+                                <SelectItem value="no-slots" disabled>
+                                  目前沒有可預約時段
+                                </SelectItem>
+                              ) : (
+                                availableTimeSlots.map((time) => (
+                                  <SelectItem key={time} value={time}>
+                                    {time}
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
+                          {slotError && (
+                            <p className="text-xs text-destructive">{slotError}</p>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -455,7 +484,7 @@ export const LeadCaptureSection = () => {
                     variant="hero"
                     size="lg"
                     className="w-full"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isLoadingSlots}
                   >
                     {isSubmitting ? (
                       <>

@@ -38,7 +38,7 @@ import {
   deleteStore as apiDeleteStore,
   toggleStoreActive as apiToggleStoreActive,
 } from "@/api";
-import type { Lead, Booking, ServiceSetting, StoreSetting, Announcement, SiteAssetRow, SiteContentRow } from "@/api/types";
+import type { Lead, UnifiedBooking, ServiceSetting, StoreSetting, Announcement, SiteAssetRow, SiteContentRow } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -102,6 +102,7 @@ const serviceLabels: Record<string, string> = {
   nail: "美甲",
   lash: "美睫",
   tattoo: "紋繡",
+  wax: "除毛",
   waxing: "除毛",
 };
 
@@ -118,6 +119,11 @@ const sourceLabels: Record<string, string> = {
   line: "LINE",
   referral: "朋友介紹",
   other: "其他",
+};
+
+const bookingSourceLabels: Record<string, string> = {
+  website: "官網預約",
+  line: "LINE OA",
 };
 
 const storeLabels: Record<string, string> = {
@@ -137,7 +143,7 @@ const Admin = () => {
   const { signOut } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<UnifiedBooking[]>([]);
   const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(null);
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
   const [deletingLeadId, setDeletingLeadId] = useState<string | null>(null);
@@ -285,6 +291,15 @@ const Admin = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
+      const adminData = await invokeAdminLeads<{ leads: Lead[]; bookings: UnifiedBooking[] }>({
+        action: "getAdminData",
+      });
+      if (!adminData.error && adminData.data) {
+        setLeads(adminData.data.leads ?? []);
+        setBookings(adminData.data.bookings ?? []);
+        return;
+      }
+
       const [leadsRes, bookingsRes] = await Promise.all([
         fetchLeads(),
         fetchBookings(),
@@ -309,13 +324,18 @@ const Admin = () => {
     await fetchData();
   };
 
-  const updateBookingStatus = async (bookingId: string, newStatus: string) => {
+  const updateBookingStatus = async (
+    bookingId: string,
+    newStatus: string,
+    bookingSource: UnifiedBooking["source"] = "website",
+  ) => {
     setUpdatingBookingId(bookingId);
     try {
       const result = await invokeAdminLeads<{ success?: boolean }>({
         action: "updateStatus",
         bookingId,
         newStatus,
+        bookingSource,
       });
       if (!result.error) {
         setBookings((prev) =>
@@ -325,7 +345,7 @@ const Admin = () => {
         return;
       }
       if (import.meta.env.DEV) {
-        const { error: directError } = await apiUpdateBookingStatus(bookingId, newStatus);
+        const { error: directError } = await apiUpdateBookingStatus(bookingId, newStatus, bookingSource);
         if (!directError) {
           setBookings((prev) =>
             prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
@@ -342,17 +362,20 @@ const Admin = () => {
     }
   };
 
-  const deleteBooking = async (bookingId: string) => {
+  const deleteBooking = async (
+    bookingId: string,
+    bookingSource: UnifiedBooking["source"] = "website",
+  ) => {
     setDeletingBookingId(bookingId);
     try {
-      const result = await invokeAdminLeads({ action: "deleteBooking", bookingId });
+      const result = await invokeAdminLeads({ action: "deleteBooking", bookingId, bookingSource });
       if (!result.error) {
         setBookings((prev) => prev.filter((b) => b.id !== bookingId));
         toast.success("預約已刪除");
         return;
       }
       if (import.meta.env.DEV) {
-        const { error: directError } = await apiDeleteBooking(bookingId);
+        const { error: directError } = await apiDeleteBooking(bookingId, bookingSource);
         if (!directError) {
           setBookings((prev) => prev.filter((b) => b.id !== bookingId));
           toast.success("預約已刪除（開發模式直接寫入）");
@@ -1337,13 +1360,27 @@ const Admin = () => {
                     ) : (
                       filteredBookings.map((booking) => (
                         <TableRow key={booking.id}>
-                          <TableCell className="font-medium">{booking.name}</TableCell>
+                          <TableCell className="font-medium">
+                            <div className="space-y-1">
+                              <div>{booking.name}</div>
+                              <span className="inline-flex w-fit items-center rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
+                                {bookingSourceLabels[booking.source] || booking.source}
+                              </span>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <Mail className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-sm">{booking.email}</span>
-                              </div>
+                              {booking.email ? (
+                                <div className="flex items-center gap-2">
+                                  <Mail className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-sm">{booking.email}</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <MessageCircle className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-sm text-muted-foreground">LINE OA 預約</span>
+                                </div>
+                              )}
                               {booking.phone && (
                                 <div className="flex items-center gap-2">
                                   <Phone className="w-4 h-4 text-muted-foreground" />
@@ -1355,7 +1392,9 @@ const Admin = () => {
                               {booking.line_id && (
                                 <div className="flex items-center gap-2">
                                   <MessageCircle className="w-4 h-4 text-muted-foreground" />
-                                  <span className="text-sm">{booking.line_id}</span>
+                                  <span className="max-w-[150px] truncate text-sm" title={booking.line_id}>
+                                    {booking.line_id}
+                                  </span>
                                 </div>
                               )}
                             </div>
@@ -1384,7 +1423,7 @@ const Admin = () => {
                           <TableCell>
                             <Select
                               value={booking.status}
-                              onValueChange={(value) => updateBookingStatus(booking.id, value)}
+                              onValueChange={(value) => updateBookingStatus(booking.id, value, booking.source)}
                               disabled={updatingBookingId === booking.id}
                             >
                               <SelectTrigger className="w-[120px] h-8">
@@ -1460,7 +1499,7 @@ const Admin = () => {
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>取消</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => deleteBooking(booking.id)}
+                                    onClick={() => deleteBooking(booking.id, booking.source)}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   >
                                     確認刪除

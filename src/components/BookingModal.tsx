@@ -26,6 +26,13 @@ import { X, Calendar, Loader2, CheckCircle, Heart } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { bookingSchema, type BookingFormData } from "@/lib/validations";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  PUBLIC_TIME_SLOTS,
+  createPublicBooking,
+  fetchAvailableBookingSlots,
+  getTaipeiDateInputValue,
+  sendBookingConfirmationEmail,
+} from "@/api/publicBooking";
 
 interface ServiceSetting {
   service_id: string;
@@ -44,19 +51,16 @@ interface BookingModalProps {
   onClose: () => void;
 }
 
-const timeSlots = [
-  "09:00", "10:00", "11:00", "12:00",
-  "13:00", "14:00", "15:00", "16:00",
-  "17:00", "18:00", "19:00", "20:00",
-  "21:00", "22:00", "23:00", "24:00"
-];
-
 export const BookingModal = ({ isOpen, onClose }: BookingModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [services, setServices] = useState<ServiceSetting[]>([]);
   const [stores, setStores] = useState<StoreSetting[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState(PUBLIC_TIME_SLOTS);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+  const [slotError, setSlotError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const { t } = useLanguage();
 
   const form = useForm<BookingFormData>({
@@ -74,12 +78,56 @@ export const BookingModal = ({ isOpen, onClose }: BookingModalProps) => {
       privacy: false,
     },
   });
+  const selectedStore = form.watch("store");
+  const selectedService = form.watch("service");
+  const selectedDate = form.watch("date");
+  const minBookingDate = getTaipeiDateInputValue();
 
   useEffect(() => {
     if (isOpen) {
       fetchServicesAndStores();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!selectedStore || !selectedService || !selectedDate) {
+      setAvailableTimeSlots(PUBLIC_TIME_SLOTS);
+      setSlotError(null);
+      return;
+    }
+
+    let isActive = true;
+    setIsLoadingSlots(true);
+    setSlotError(null);
+
+    fetchAvailableBookingSlots({
+      store: selectedStore,
+      service: selectedService,
+      date: selectedDate,
+    })
+      .then((slots) => {
+        if (!isActive) return;
+        setAvailableTimeSlots(slots);
+        const currentTime = form.getValues("time");
+        if (currentTime && !slots.includes(currentTime)) {
+          form.setValue("time", "");
+        }
+      })
+      .catch((error) => {
+        if (!isActive) return;
+        console.error("Error fetching available slots:", error);
+        setAvailableTimeSlots([]);
+        setSlotError("目前無法讀取可預約時段，請稍後再試或直接聯繫門市");
+      })
+      .finally(() => {
+        if (isActive) setIsLoadingSlots(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [form, isOpen, selectedDate, selectedService, selectedStore]);
 
   const fetchServicesAndStores = async () => {
     setIsLoadingData(true);
@@ -116,75 +164,36 @@ export const BookingModal = ({ isOpen, onClose }: BookingModalProps) => {
 
   const onSubmit = async (data: BookingFormData) => {
     setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
-      // Save booking to database
-      const { error: dbError } = await supabase
-        .from('bookings')
-        .insert({
-          name: data.name,
-          email: data.email,
-          phone: data.phone || null,
-          line_id: data.lineId || null,
-          store: data.store,
-          service: data.service,
-          booking_date: data.date,
-          booking_time: data.time,
-          notes: data.notes || null,
-          status: 'pending',
-        });
+      const bookingInput = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        lineId: data.lineId || undefined,
+        store: data.store,
+        service: data.service,
+        date: data.date,
+        time: data.time,
+        notes: data.notes || undefined,
+      };
 
-      if (dbError) {
-        console.error("Error saving booking:", dbError);
-      }
+      await createPublicBooking(bookingInput);
 
-      // Send to webhook
       try {
-        await fetch('https://sky770825.zeabur.app/webhook/lovabletext', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name: data.name,
-            email: data.email,
-            phone: data.phone || null,
-            lineId: data.lineId || null,
-            store: data.store,
-            service: data.service,
-            date: data.date,
-            time: data.time,
-            notes: data.notes || null,
-          }),
-        });
-        console.log("Webhook sent successfully");
-      } catch (webhookError) {
-        console.error("Error sending to webhook:", webhookError);
-      }
-
-      // Send booking confirmation emails
-      const { error } = await supabase.functions.invoke('send-booking-confirmation', {
-        body: {
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          lineId: data.lineId || null,
-          store: data.store,
-          service: data.service,
-          date: data.date,
-          time: data.time,
-          notes: data.notes || null,
-          admin_email: "sky19880825@gmail.com",
-        },
-      });
-
-      if (error) {
+        await sendBookingConfirmationEmail(bookingInput);
+      } catch (error) {
         console.error("Error sending booking confirmation:", error);
-      } else {
-        console.log("Booking confirmation emails sent successfully");
       }
 
-      setIsSubmitting(false);
+      const latestSlots = await fetchAvailableBookingSlots({
+        store: data.store,
+        service: data.service,
+        date: data.date,
+      });
+      setAvailableTimeSlots(latestSlots);
+
       setIsSuccess(true);
 
       // Reset after showing success
@@ -195,12 +204,16 @@ export const BookingModal = ({ isOpen, onClose }: BookingModalProps) => {
       }, 2500);
     } catch (error) {
       console.error("Error in booking submission:", error);
+      setSubmitError(error instanceof Error ? error.message : "預約失敗，請稍後再試");
+    } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleClose = () => {
     form.reset();
+    setSubmitError(null);
+    setSlotError(null);
     onClose();
   };
 
@@ -446,6 +459,7 @@ export const BookingModal = ({ isOpen, onClose }: BookingModalProps) => {
                             <FormControl>
                               <Input
                                 type="date"
+                                min={minBookingDate}
                                 {...field}
                               />
                             </FormControl>
@@ -464,20 +478,42 @@ export const BookingModal = ({ isOpen, onClose }: BookingModalProps) => {
                             <Select
                               onValueChange={field.onChange}
                               value={field.value}
+                              disabled={!selectedStore || !selectedService || !selectedDate || isLoadingSlots || availableTimeSlots.length === 0}
                             >
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder={t("booking.time")} />
+                                  <SelectValue
+                                    placeholder={
+                                      isLoadingSlots
+                                        ? "讀取可約時段..."
+                                        : availableTimeSlots.length === 0 && selectedStore && selectedService && selectedDate
+                                          ? "目前已滿"
+                                          : t("booking.time")
+                                    }
+                                  />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {timeSlots.map((time) => (
-                                  <SelectItem key={time} value={time}>
-                                    {time}
+                                {isLoadingSlots ? (
+                                  <SelectItem value="loading" disabled>
+                                    讀取可約時段...
                                   </SelectItem>
-                                ))}
+                                ) : availableTimeSlots.length === 0 ? (
+                                  <SelectItem value="no-slots" disabled>
+                                    目前沒有可預約時段
+                                  </SelectItem>
+                                ) : (
+                                  availableTimeSlots.map((time) => (
+                                    <SelectItem key={time} value={time}>
+                                      {time}
+                                    </SelectItem>
+                                  ))
+                                )}
                               </SelectContent>
                             </Select>
+                            {slotError && (
+                              <p className="text-xs text-destructive">{slotError}</p>
+                            )}
                             <FormMessage />
                           </FormItem>
                         )}
@@ -526,13 +562,19 @@ export const BookingModal = ({ isOpen, onClose }: BookingModalProps) => {
                       )}
                     />
 
+                    {submitError && (
+                      <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                        {submitError}
+                      </p>
+                    )}
+
                     {/* Submit */}
                     <Button
                       type="submit"
                       variant="hero"
                       size="lg"
                       className="w-full"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isLoadingSlots}
                     >
                       {isSubmitting ? (
                         <>

@@ -28,6 +28,7 @@ const STORE_KEYS   = Object.keys(STORE_NAMES);
 const DATE_RE      = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE      = /^\d{2}:\d{2}$/;
 const PHONE_RE     = /^0\d{8,9}$/;
+const RICH_MENU_KEYWORDS = new Set(['美甲款式', '美睫款式', '最新優惠', '門市資訊', '會員專區']);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -206,6 +207,23 @@ serve(async (req) => {
         if (!result.ok && ADMIN) await notify(TOKEN, ADMIN, `⚠️ reply 失敗\n${result.error}`);
       }
       continue;
+    }
+
+    // ── 六格圖文選單：任何流程步驟都優先處理，避免被當作姓名/電話寫入 ──
+    if (text === '立即預約') {
+      await setState(supabase, userId, { step: 'select_service' });
+      const result = await replyMessage(TOKEN, replyToken, [serviceCarousel()]);
+      if (!result.ok && ADMIN) await notify(TOKEN, ADMIN, `⚠️ reply 失敗\n${result.error}`);
+      continue;
+    }
+
+    if (RICH_MENU_KEYWORDS.has(text)) {
+      const messages = text === '門市資訊' ? [storeInfoBubble()] : getKeywordReply(text);
+      if (messages) {
+        const result = await replyMessage(TOKEN, replyToken, messages);
+        if (!result.ok && ADMIN) await notify(TOKEN, ADMIN, `⚠️ reply 失敗\n${result.error}`);
+        continue;
+      }
     }
 
     // ── 全域快捷鍵（填寫姓名/電話期間不觸發，避免誤攔截）──────

@@ -6,8 +6,42 @@ export const TIME_SLOTS = [
 ];
 
 export const DEFAULT_DURATIONS: Record<string, number> = {
-  nail: 90, lash: 120, tattoo: 120, wax: 60,
+  nail: 90, lash: 120, tattoo: 120, wax: 60, waxing: 60,
 };
+
+export function normalizeServiceKey(service?: string | null): string {
+  if (!service) return '';
+  return service === 'waxing' ? 'wax' : service;
+}
+
+async function loadDurations(supabase: any): Promise<Record<string, number>> {
+  const { data: rules } = await supabase
+    .from('slot_rules')
+    .select('service, duration_minutes');
+  const durations: Record<string, number> = { ...DEFAULT_DURATIONS };
+  for (const r of rules ?? []) {
+    const key = normalizeServiceKey(r.service);
+    durations[key] = r.duration_minutes;
+    if (key === 'wax') durations.waxing = r.duration_minutes;
+  }
+  return durations;
+}
+
+function occupySlots(
+  occupied: Set<string>,
+  durations: Record<string, number>,
+  bookingTime?: string | null,
+  service?: string | null,
+) {
+  if (!bookingTime) return;
+  const mins  = durations[normalizeServiceKey(service)] ?? 60;
+  const slots = Math.ceil(mins / 60);
+  const idx   = TIME_SLOTS.indexOf(bookingTime);
+  if (idx === -1) return;
+  for (let i = 0; i < slots; i++) {
+    if (TIME_SLOTS[idx + i]) occupied.add(TIME_SLOTS[idx + i]);
+  }
+}
 
 /**
  * 取得某門市某日期的佔用時段 Set。
@@ -19,29 +53,44 @@ export async function getOccupiedSlots(
   date: string,
   excludeBookingId?: string,
 ): Promise<Set<string>> {
-  const { data: rules } = await supabase
-    .from('slot_rules')
-    .select('service, duration_minutes');
-  const durations: Record<string, number> = { ...DEFAULT_DURATIONS };
-  for (const r of rules ?? []) durations[r.service] = r.duration_minutes;
+  const durations = await loadDurations(supabase);
 
-  let query = supabase
+  let lineQuery = supabase
     .from('line_bookings')
     .select('booking_time, service')
     .eq('store', store)
     .eq('booking_date', date)
     .not('status', 'eq', 'cancelled');
-  if (excludeBookingId) query = query.neq('id', excludeBookingId);
+  if (excludeBookingId) lineQuery = lineQuery.neq('id', excludeBookingId);
 
-  const { data: bookings } = await query;
+  let websiteQuery = supabase
+    .from('bookings')
+    .select('booking_time, service')
+    .eq('store', store)
+    .eq('booking_date', date)
+    .not('status', 'eq', 'cancelled');
+  if (excludeBookingId) websiteQuery = websiteQuery.neq('id', excludeBookingId);
+
+  const [{ data: lineBookings }, { data: websiteBookings }, { data: blocks }] = await Promise.all([
+    lineQuery,
+    websiteQuery,
+    supabase
+      .from('booking_blocks')
+      .select('block_time')
+      .eq('store_id', store)
+      .eq('block_date', date),
+  ]);
+
   const occupied = new Set<string>();
-  for (const b of bookings ?? []) {
-    const mins  = durations[b.service] ?? 60;
-    const slots = Math.ceil(mins / 60);
-    const idx   = TIME_SLOTS.indexOf(b.booking_time);
-    if (idx === -1) continue;
-    for (let i = 0; i < slots; i++) {
-      if (TIME_SLOTS[idx + i]) occupied.add(TIME_SLOTS[idx + i]);
+  for (const b of lineBookings ?? []) {
+    occupySlots(occupied, durations, b.booking_time, b.service);
+  }
+  for (const b of websiteBookings ?? []) {
+    occupySlots(occupied, durations, b.booking_time, b.service);
+  }
+  for (const block of blocks ?? []) {
+    if (TIME_SLOTS.includes(block.block_time)) {
+      occupied.add(block.block_time);
     }
   }
   return occupied;
@@ -56,14 +105,9 @@ export async function getAvailableSlots(
   date: string,
   service: string,
 ): Promise<string[]> {
-  const { data: rules } = await supabase
-    .from('slot_rules')
-    .select('service, duration_minutes');
-  const durations: Record<string, number> = { ...DEFAULT_DURATIONS };
-  for (const r of rules ?? []) durations[r.service] = r.duration_minutes;
-
-  const occupied = await getOccupiedSlots(supabase, store, date);
-  const needed   = Math.ceil((durations[service] ?? 60) / 60);
+  const durations = await loadDurations(supabase);
+  const occupied  = await getOccupiedSlots(supabase, store, date);
+  const needed    = Math.ceil((durations[normalizeServiceKey(service)] ?? 60) / 60);
 
   return TIME_SLOTS.filter((_, idx) => {
     for (let i = 0; i < needed; i++) {
@@ -84,14 +128,9 @@ export async function checkSlotAvailable(
   service: string,
   excludeBookingId?: string,
 ): Promise<boolean> {
-  const { data: rules } = await supabase
-    .from('slot_rules')
-    .select('service, duration_minutes');
-  const durations: Record<string, number> = { ...DEFAULT_DURATIONS };
-  for (const r of rules ?? []) durations[r.service] = r.duration_minutes;
-
-  const occupied = await getOccupiedSlots(supabase, store, date, excludeBookingId);
-  const needed   = Math.ceil((durations[service] ?? 60) / 60);
+  const durations = await loadDurations(supabase);
+  const occupied  = await getOccupiedSlots(supabase, store, date, excludeBookingId);
+  const needed    = Math.ceil((durations[normalizeServiceKey(service)] ?? 60) / 60);
   const idx      = TIME_SLOTS.indexOf(time);
   if (idx === -1) return false;
   for (let i = 0; i < needed; i++) {

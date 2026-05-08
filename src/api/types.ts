@@ -8,6 +8,12 @@ export type AnnouncementInsert = Database["public"]["Tables"]["announcements"]["
 export type AnnouncementUpdate = Database["public"]["Tables"]["announcements"]["Update"];
 
 export type Booking = Database["public"]["Tables"]["bookings"]["Row"];
+export type BookingSource = "website" | "line";
+export type UnifiedBooking = Omit<Booking, "email"> & {
+  email: string | null;
+  source: BookingSource;
+  line_user_id?: string | null;
+};
 export type Lead = Database["public"]["Tables"]["leads"]["Row"];
 
 export type ServiceSetting = Database["public"]["Tables"]["service_settings"]["Row"];

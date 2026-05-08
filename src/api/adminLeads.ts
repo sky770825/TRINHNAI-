@@ -2,14 +2,15 @@
  * admin-leads Edge Function 呼叫封裝；驗證由 utils/adminLeads 的 adminLeadsBody 處理
  */
 import { supabase } from "@/integrations/supabase/client";
+import type { BookingSource } from "./types";
 import { adminLeadsBody, isAdminLeads401, ADMIN_LEADS_401_MESSAGE } from "@/utils/adminLeads";
 
 export { isAdminLeads401, ADMIN_LEADS_401_MESSAGE };
 
 export type AdminLeadsPayload =
   | { action: "getAdminData" }
-  | { action: "updateStatus"; bookingId: string; newStatus: string }
-  | { action: "deleteBooking"; bookingId: string }
+  | { action: "updateStatus"; bookingId: string; newStatus: string; bookingSource?: BookingSource }
+  | { action: "deleteBooking"; bookingId: string; bookingSource?: BookingSource }
   | { action: "deleteLead"; leadId: string }
   | { action: "getLineUsers" }
   | { action: "updateLineUser"; lineUserId: string; notes?: string; tags?: string[] }

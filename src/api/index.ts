@@ -4,6 +4,7 @@
 export * from "./types";
 export * from "./leads";
 export * from "./bookings";
+export * from "./publicBooking";
 export * from "./announcements";
 export * from "./services";
 export * from "./stores";

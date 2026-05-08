@@ -36,6 +36,10 @@ type ValidStatus = typeof VALID_STATUSES[number];
 const VALID_PAYMENT_STATUSES = ['unpaid', 'pending', 'confirmed'] as const;
 type ValidPaymentStatus = typeof VALID_PAYMENT_STATUSES[number];
 
+// Allowed booking sources
+const VALID_BOOKING_SOURCES = ['website', 'line'] as const;
+type ValidBookingSource = typeof VALID_BOOKING_SOURCES[number];
+
 // Allowed action values
 const VALID_ACTIONS = [
   'updateStatus', 'getLineUsers', 'updateLineUser', 'confirmPayment', 
@@ -68,6 +72,7 @@ interface AdminRequest {
   password?: string;
   action?: ValidAction;
   bookingId?: string;
+  bookingSource?: ValidBookingSource;
   newStatus?: ValidStatus;
   lineUserId?: string;
   notes?: string;
@@ -116,6 +121,12 @@ function validateRequest(body: unknown): { valid: true; data: AdminRequest } | {
       }
       validatedRequest.bookingId = obj.bookingId;
       validatedRequest.newStatus = obj.newStatus;
+      if (obj.bookingSource !== undefined) {
+        if (typeof obj.bookingSource !== 'string' || !VALID_BOOKING_SOURCES.includes(obj.bookingSource as ValidBookingSource)) {
+          return { valid: false, error: '無效的預約來源' };
+        }
+        validatedRequest.bookingSource = obj.bookingSource as ValidBookingSource;
+      }
     }
 
     // If action is updateLineUser, lineUserId is required
@@ -226,6 +237,12 @@ function validateRequest(body: unknown): { valid: true; data: AdminRequest } | {
         return { valid: false, error: '無效的預約 ID 格式' };
       }
       validatedRequest.bookingId = obj.bookingId;
+      if (obj.bookingSource !== undefined) {
+        if (typeof obj.bookingSource !== 'string' || !VALID_BOOKING_SOURCES.includes(obj.bookingSource as ValidBookingSource)) {
+          return { valid: false, error: '無效的預約來源' };
+        }
+        validatedRequest.bookingSource = obj.bookingSource as ValidBookingSource;
+      }
     }
 
     // Delete lead action
@@ -293,7 +310,7 @@ serve(async (req) => {
       );
     }
 
-    const { password, action, bookingId, newStatus, lineUserId, notes, tags, targetGroup, message, remarketingMessageId, hoursAfterInterest, messageContent, isActive, leadId, lineBookingId } = validation.data;
+    const { password, action, bookingId, bookingSource, newStatus, lineUserId, notes, tags, targetGroup, message, remarketingMessageId, hoursAfterInterest, messageContent, isActive, leadId, lineBookingId } = validation.data;
     
     // Check JWT auth first (from Authorization header)
     const authHeader = req.headers.get('Authorization');
@@ -354,13 +371,37 @@ serve(async (req) => {
 
     // Handle getAdminData action (for Admin page)
     if (action === 'getAdminData') {
-      const [leadsRes, bookingsRes] = await Promise.all([
+      const [leadsRes, bookingsRes, lineBookingsRes] = await Promise.all([
         supabase.from('leads').select('*').order('created_at', { ascending: false }),
-        supabase.from('bookings').select('*').order('created_at', { ascending: false })
+        supabase.from('bookings').select('*').order('created_at', { ascending: false }),
+        supabase.from('line_bookings').select('*').order('created_at', { ascending: false })
       ]);
+
+      const websiteBookings = (bookingsRes.data || []).map((booking) => ({
+        ...booking,
+        source: 'website',
+      }));
+      const lineBookings = (lineBookingsRes.data || []).map((booking) => ({
+        id: booking.id,
+        name: booking.user_name || 'LINE 用戶',
+        email: null,
+        phone: booking.phone,
+        line_id: booking.line_user_id,
+        store: booking.store,
+        service: booking.service,
+        booking_date: booking.booking_date,
+        booking_time: booking.booking_time,
+        notes: booking.notes,
+        status: booking.status,
+        created_at: booking.created_at,
+        source: 'line',
+        line_user_id: booking.line_user_id,
+      }));
+      const unifiedBookings = [...websiteBookings, ...lineBookings]
+        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
       
       return new Response(
-        JSON.stringify({ leads: leadsRes.data || [], bookings: bookingsRes.data || [] }),
+        JSON.stringify({ leads: leadsRes.data || [], bookings: unifiedBookings }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -368,9 +409,10 @@ serve(async (req) => {
     // Handle deleteBooking action
     if (action === 'deleteBooking' && bookingId) {
       console.log(`Deleting booking ${bookingId}`);
+      const table = bookingSource === 'line' ? 'line_bookings' : 'bookings';
       
       const { error: deleteError } = await supabase
-        .from('bookings')
+        .from(table)
         .delete()
         .eq('id', bookingId);
 
@@ -426,10 +468,14 @@ serve(async (req) => {
     // Handle status update action
     if (action === 'updateStatus' && bookingId && newStatus) {
       console.log(`Updating booking ${bookingId} to status: ${newStatus}`);
+      const table = bookingSource === 'line' ? 'line_bookings' : 'bookings';
+      const updatePayload = bookingSource === 'line' && newStatus === 'confirmed'
+        ? { status: newStatus, confirmed_at: new Date().toISOString(), confirmed_by: 'admin' }
+        : { status: newStatus };
       
       const { error: updateError } = await supabase
-        .from('bookings')
-        .update({ status: newStatus })
+        .from(table)
+        .update(updatePayload)
         .eq('id', bookingId);
 
       if (updateError) {
