@@ -95,6 +95,23 @@ serve(async (req) => {
 
     const text = String(event.message.text ?? '').trim();
 
+    // ── 六格圖文選單的精準指令先回覆，少一次 conversation_state DB round trip ──
+    if (text === '立即預約') {
+      await setState(supabase, userId, { step: 'select_service' });
+      const result = await replyMessage(TOKEN, replyToken, [serviceCarousel()]);
+      if (!result.ok && ADMIN) await notify(TOKEN, ADMIN, `⚠️ reply 失敗\n${result.error}`);
+      continue;
+    }
+
+    if (RICH_MENU_KEYWORDS.has(text)) {
+      const messages = text === '門市資訊' ? [storeInfoBubble()] : getKeywordReply(text);
+      if (messages) {
+        const result = await replyMessage(TOKEN, replyToken, messages);
+        if (!result.ok && ADMIN) await notify(TOKEN, ADMIN, `⚠️ reply 失敗\n${result.error}`);
+        continue;
+      }
+    }
+
     // ── 讀取對話狀態 ─────────────────────────────────────────
     const { data: userRow } = await supabase
       .from('line_users')
@@ -207,23 +224,6 @@ serve(async (req) => {
         if (!result.ok && ADMIN) await notify(TOKEN, ADMIN, `⚠️ reply 失敗\n${result.error}`);
       }
       continue;
-    }
-
-    // ── 六格圖文選單：任何流程步驟都優先處理，避免被當作姓名/電話寫入 ──
-    if (text === '立即預約') {
-      await setState(supabase, userId, { step: 'select_service' });
-      const result = await replyMessage(TOKEN, replyToken, [serviceCarousel()]);
-      if (!result.ok && ADMIN) await notify(TOKEN, ADMIN, `⚠️ reply 失敗\n${result.error}`);
-      continue;
-    }
-
-    if (RICH_MENU_KEYWORDS.has(text)) {
-      const messages = text === '門市資訊' ? [storeInfoBubble()] : getKeywordReply(text);
-      if (messages) {
-        const result = await replyMessage(TOKEN, replyToken, messages);
-        if (!result.ok && ADMIN) await notify(TOKEN, ADMIN, `⚠️ reply 失敗\n${result.error}`);
-        continue;
-      }
     }
 
     // ── 全域快捷鍵（填寫姓名/電話期間不觸發，避免誤攔截）──────

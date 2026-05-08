@@ -9,21 +9,32 @@ export const DEFAULT_DURATIONS: Record<string, number> = {
   nail: 90, lash: 120, tattoo: 120, wax: 60, waxing: 60,
 };
 
+const DURATION_CACHE_TTL_MS = 5 * 60 * 1000;
+let durationCache: { expiresAt: number; value: Record<string, number> } | null = null;
+
 export function normalizeServiceKey(service?: string | null): string {
   if (!service) return '';
   return service === 'waxing' ? 'wax' : service;
 }
 
 async function loadDurations(supabase: any): Promise<Record<string, number>> {
-  const { data: rules } = await supabase
+  const now = Date.now();
+  if (durationCache && durationCache.expiresAt > now) {
+    return durationCache.value;
+  }
+
+  const { data: rules, error } = await supabase
     .from('slot_rules')
     .select('service, duration_minutes');
   const durations: Record<string, number> = { ...DEFAULT_DURATIONS };
-  for (const r of rules ?? []) {
-    const key = normalizeServiceKey(r.service);
-    durations[key] = r.duration_minutes;
-    if (key === 'wax') durations.waxing = r.duration_minutes;
+  if (!error) {
+    for (const r of rules ?? []) {
+      const key = normalizeServiceKey(r.service);
+      durations[key] = r.duration_minutes;
+      if (key === 'wax') durations.waxing = r.duration_minutes;
+    }
   }
+  durationCache = { expiresAt: now + DURATION_CACHE_TTL_MS, value: durations };
   return durations;
 }
 
